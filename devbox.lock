@@ -1,0 +1,11 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "github:NixOS/nixpkgs/nixpkgs-unstable": {
+      "resolved": "github:NixOS/nixpkgs/de0fe301211c267807afd11b12613f5511ff7433?lastModified=1741310760&narHash=sha256-aizILFrPgq%2FW53Jw8i0a1h1GZAAKtlYOrG%2FA5r46gVM%3D"
+    },
+    "github:gren-lang/nix/0.5.3": {
+      "resolved": "github:gren-lang/nix/7ccce05f4a1e7fa390bad019d40f2de49ff8a1a5?lastModified=1739404620&narHash=sha256-WR1mPvRZKoRQwjIOsNoJFaesJ595XyG9uXv%2BLGBEjiI%3D"
+    }
+  }
+}
