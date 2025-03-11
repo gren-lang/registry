@@ -13,6 +13,7 @@ The goal is to be able to do the following operations:
 * Permissions in a publishing identity (only download, publish new packages, user admin)
 * Publish new packages/versions
 * Revoke a package/version (the name/version is still registered, but the actual content is removed).
+* Ask which version is latest for a given compiler version, and which was the previous version related to some version number.
 
 Account creation or login is handled via an email magic link.
 The client recieves a random token that they can use to exhange into a proper login token, but the endpoint doing the exhange will only respond once the user has clicked on a link they receive by e-mail.
