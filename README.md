@@ -8,7 +8,7 @@ Serving actual users via the browser will come later.
 
 The goal is to be able to do the following operations:
 * Register a new user, or login
-* Register a publishing identity (`gren-lang` is a publishing identity, `robin@heghan.org` is a user)
+* Register a publishing identity (`gren-lang` is a publishing identity, `me@example.com` is a user)
 * Add or remove additional users to a publishing identity
 * Permissions in a publishing identity (only download, publish new packages, user admin)
 * Publish new packages/versions
