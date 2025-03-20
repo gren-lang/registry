@@ -1,0 +1,110 @@
+module Main exposing (main)
+
+import Bytes exposing (Bytes)
+import HttpServer as Http exposing (ServerError(..), Method(..))
+import HttpServer.Response as Response exposing (Response)
+import Init
+import Node exposing (Environment, Program)
+import Stream
+import Task exposing (Task)
+
+
+main : Program Model Msg
+main =
+    Node.defineProgram
+        { init = init
+        , update = update
+        , subscriptions = subscriptions
+        }
+
+
+config : { host : String, port_ : Int }
+config =
+    { host = "0.0.0.0"
+    , port_ = 3000
+    }
+
+
+-- MODEL
+
+
+type alias Model =
+    { stdout : Stream.Writable Bytes
+    , stderr : Stream.Writable Bytes
+    , server : Maybe Http.Server
+    }
+
+
+init : Environment -> Init.Task { model : Model, command : Cmd Msg }
+init env =
+    Init.await Http.initialize <| \serverPermission ->
+        Node.startProgram
+            { model =
+                { stdout = env.stdout
+                , stderr = env.stderr
+                , server = Nothing
+                }
+            , command =
+                Task.attempt CreateServerResult <|
+                    Http.createServer serverPermission config
+            }
+
+
+-- UPDATE
+
+
+type Msg
+    = CreateServerResult (Result Http.ServerError Http.Server)
+    | GotRequest { request : Http.Request, response : Response }
+
+
+update : Msg -> Model -> { model : Model, command : Cmd Msg }
+update msg model =
+    when msg is
+        CreateServerResult result ->
+            when result is
+                Ok server ->
+                    { model = { model | server = Just server }
+                    , command = 
+                        "Server started: http://" ++ config.host ++ ":" ++ String.fromInt config.port_
+                            |> print model.stdout
+                            |> Task.execute
+                    }
+
+                Err (ServerError { code, message }) ->
+                    { model = model
+                    , command =
+                        "Server failed to start: " ++ code ++ "\n" ++ message
+                            |> print model.stderr
+                            |> Task.execute
+                    }
+        
+        GotRequest { request, response } ->
+            { model = model
+            , command = 
+                response
+                    |> Response.setStatus 404
+                    |> Response.setBody "not found"
+                    |> Response.send
+            }
+
+
+print : Stream.Writable Bytes -> String -> Task Never {}
+print stream string =
+    Stream.writeLineAsBytes string stream
+        |> Task.map (\_ -> {})
+        |> Task.onError (\_ -> Task.succeed {})
+
+
+-- SUBSCRIPTION
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    when model.server is
+        Just server ->
+            Http.onRequest server <| \req res -> 
+                GotRequest { request = req, response = res }
+
+        Nothing ->
+            Sub.none
