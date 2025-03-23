@@ -34,6 +34,13 @@ As much code as possible should be written in Gren, with as few dependencies as 
 Start by persisting the registry via filesystem on disk.
 Once task ports land (25S?), switch to sqlite via ports with litestream for backups.
 
+## Local Development
+
+This project uses [devbox](https://www.jetify.com/devbox).
+If you don't want to use devbox, you can find a list of the requried dependencies and the commands for running the server in devbox.json.
+
+You can run the server with `devbox run server`.
+
 ## Open Questions
 
 * [ ] Refresh tokens?
