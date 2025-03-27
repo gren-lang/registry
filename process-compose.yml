@@ -1,0 +1,6 @@
+# process-compose
+version: "0.5"
+
+processes:
+  server:
+   command: make server

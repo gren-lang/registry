@@ -37,9 +37,12 @@ Once task ports land (25S?), switch to sqlite via ports with litestream for back
 ## Local Development
 
 This project uses [devbox](https://www.jetify.com/devbox).
-If you don't want to use devbox, you can find a list of the requried dependencies and the commands for running the server in devbox.json.
 
-You can run the server with `devbox run server`.
+You can run the server with `devbox services up`
+
+To run in the background, run `devbox services up -b` and stop with `devbox services stop`
+
+Run tests with `devbox run test`
 
 ## Open Questions
 

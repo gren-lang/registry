@@ -1,0 +1,11 @@
+module Test.E2E exposing (tests)
+
+import Expect
+import Test.Runner.Effectful exposing (Test, test)
+
+
+tests : Array Test
+tests =
+    [ test "Has tests" <| \_ ->
+        Expect.equal True True
+    ]

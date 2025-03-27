@@ -9,10 +9,7 @@
     ],
     "scripts": {
       "test": [
-        "echo \"Error: no test specified\" && exit 1"
-      ],
-      "server": [
-        "gren make src/Main.gren && node app"
+        "./test.sh"
       ]
     }
   }
