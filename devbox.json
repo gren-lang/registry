@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.6/.schema/devbox.schema.json",
   "packages": [
-    "github:gren-lang/nix/0.5.3",
+    "github:gren-lang/nix/0.5.4",
     "nodejs@20"
   ],
   "shell": {
@@ -9,10 +9,7 @@
     ],
     "scripts": {
       "test": [
-        "echo \"Error: no test specified\" && exit 1"
-      ],
-      "server": [
-        "gren make src/Main.gren && node app"
+        "./test.sh"
       ]
     }
   }
