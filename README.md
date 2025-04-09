@@ -47,22 +47,28 @@ Run tests with `devbox run test`
 ## Open Questions
 
 * [ ] Refresh tokens?
-* [ ] Prevent spamming endpoints? (e.g. bot POSTing to /users to flood the system)
+* [ ] Prevent spamming endpoints? (e.g. bots flooding system with spam users or publishing identities)
 
 ## User Authentication
 
-Two tables: users and logins.
+Goals:
 
-- CLI posts to `users/` with email. Server creates user if not exists, creates
-  new login row with new nonce and validation tokens. Mails link with
-  validation token, and returns link with nonce.
-- User clicks validation link from email. Server sets `validated = now` where
-  validation token matches.
-- CLI pings nonce link. Server looks for login row with matching nonce,
-  `validated < timeout`, and `authToken = null`. If found, create and set
-  `authToken` (invalidating the nonce), and return it.
-- CLI caches auth token on file system to use in other requests.
+- Create and authenticate users from CLI on the command line.
+- Verify user identity using email.
 
-Will need a way to cleanup the logins table.
-This could be part of each initial login post to `users/` or some recurring job.
+Auth flow:
 
+- CLI posts to the server, server emails validation link and returns a fetch link.
+- User follows email validation link to get a validation code.
+- User enters validation code on the CLI, where it was prompting/waiting for it.
+- CLI posts to the fetch link with the validation code.
+- Server creates and returns a session token.
+- CLI saves token on disk to use for authenticated requests.
+
+Benefits:
+
+- Not saving or requiring passwords.
+- CLI auth tightly coupled to email validation.
+    - Can't get session token without fetch token/link from the cli initiation and the validation code.
+    - Can't get the validation code without validation token/link from the email.
+- CLI auth loosely coupled to where you check your email.

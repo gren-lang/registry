@@ -78,7 +78,7 @@ update msg model =
                             |> print model.stderr
                             |> Task.execute
                     }
-        
+
         GotRequest { request, response } ->
             { model = model
             , command = 
