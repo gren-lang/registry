@@ -1,3 +1,5 @@
 .gren
-app
-app-test
+db/*.db
+dist/app.js
+dist/test
+node_modules
