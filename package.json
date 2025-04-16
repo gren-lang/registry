@@ -1,5 +1,5 @@
 {
   "dependencies": {
-    "sqlite3": "^5.1.7"
+    "ws4sql": "^0.17.0-dev2"
   }
 }

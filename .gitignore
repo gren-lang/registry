@@ -1,5 +1,5 @@
 .gren
-db/*.db
-dist/app.js
+db/*.db*
+dist/app
 dist/test
 node_modules

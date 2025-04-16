@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # fail immediately if app doesn't build
-make dist/app.js || exit 1
+make dist/app || exit 1
 
 # start app in background and run all tests
 devbox services up -b && \
