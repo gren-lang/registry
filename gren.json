@@ -7,8 +7,8 @@
     "gren-version": "0.5.3",
     "dependencies": {
         "direct": {
-            "blaix/gren-ws4sql": "local:../../gren-ws4sql",
             "blaix/gren-effectful-tests-node": "4.1.0",
+            "blaix/gren-ws4sql": "1.0.1",
             "gren-lang/core": "6.0.1",
             "gren-lang/node": "5.0.2",
             "gren-lang/test": "4.1.0"
