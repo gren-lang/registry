@@ -154,7 +154,7 @@ migrations =
     , { statement = 
         """
         CREATE TABLE IF NOT EXISTS user (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY,
             email TEXT NOT NULL UNIQUE
         ) STRICT
         """
@@ -164,7 +164,7 @@ migrations =
     , { statement =
         """
         CREATE TABLE IF NOT EXISTS session (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY,
             created INTEGER NOT NULL,
             user_id INTEGER NOT NULL REFERENCES user(id),
             nonce TEXT NOT NULL UNIQUE,
@@ -179,7 +179,7 @@ migrations =
     , { statement =
         """
         CREATE TABLE IF NOT EXISTS publishing_identity (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY,
             name TEXT NOT NULL UNIQUE
         ) STRICT
         """
