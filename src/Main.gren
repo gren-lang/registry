@@ -171,10 +171,19 @@ migrations =
             id INTEGER PRIMARY KEY,
             created INTEGER NOT NULL,
             user_id INTEGER NOT NULL REFERENCES user(id),
-            nonce TEXT NOT NULL UNIQUE,
+
+            -- Token used in email validation link.
             validation_token TEXT NOT NULL UNIQUE,
-            validation_code TEXT UNIQUE, -- null until user visits link with validation token
-            session_token TEXT UNIQUE -- null until cli posts with nonce and validation code
+
+            -- Create and show this when user follows email validation link.
+            -- User will provide this to the CLI.
+            validation_code TEXT UNIQUE,
+
+            -- Token used by the CLI to fetch session token.
+            fetch_session_token TEXT NOT NULL UNIQUE,
+
+            -- Create and return this when CLI posts with validation_code and fetch_session_token
+            session_token TEXT UNIQUE
         ) STRICT
         """
       , parameters = []
