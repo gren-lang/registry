@@ -159,7 +159,8 @@ migrations =
         """
         CREATE TABLE IF NOT EXISTS user (
             id INTEGER PRIMARY KEY,
-            email TEXT NOT NULL UNIQUE
+            email TEXT NOT NULL UNIQUE,
+            role TEXT
         ) STRICT
         """
       , parameters = []
@@ -192,16 +193,6 @@ migrations =
     , { statement =
         """
         CREATE TABLE IF NOT EXISTS publishing_identity (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE
-        ) STRICT
-        """
-      , parameters = []
-      }
-
-    , { statement =
-        """
-        CREATE TABLE IF NOT EXISTS role (
             id INTEGER PRIMARY KEY,
             name TEXT NOT NULL UNIQUE
         ) STRICT
