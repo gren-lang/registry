@@ -159,8 +159,7 @@ migrations =
         """
         CREATE TABLE IF NOT EXISTS user (
             id INTEGER PRIMARY KEY,
-            email TEXT NOT NULL UNIQUE,
-            role TEXT
+            email TEXT NOT NULL UNIQUE
         ) STRICT
         """
       , parameters = []
@@ -205,7 +204,7 @@ migrations =
         CREATE TABLE IF NOT EXISTS publishing_identity_users (
             user_id INTEGER NOT NULL REFERENCES user(id),
             publishing_identity_id INTEGER NOT NULL REFERENCES publishing_identity(id),
-            role_id INTEGER NOT NULL REFERENCES role(id)
+            role TEXT
         ) STRICT
         """
       , parameters = []
