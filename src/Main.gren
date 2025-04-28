@@ -1,7 +1,10 @@
 module Main exposing (main)
 
 import Bytes exposing (Bytes)
-import HttpServer as Http exposing (ServerError(..), Method(..))
+import Db
+import Db.Encode
+import HttpClient
+import HttpServer exposing (ServerError(..), Method(..))
 import HttpServer.Response as Response exposing (Response)
 import Init
 import Node exposing (Environment, Program)
@@ -31,22 +34,34 @@ config =
 type alias Model =
     { stdout : Stream.Writable Bytes
     , stderr : Stream.Writable Bytes
-    , server : Maybe Http.Server
+    , server : Maybe HttpServer.Server
+    , db : Db.Connection
     }
 
 
 init : Environment -> Init.Task { model : Model, command : Cmd Msg }
 init env =
-    Init.await Http.initialize <| \serverPermission ->
+    Init.await HttpServer.initialize <| \serverPermission ->
+    Init.await HttpClient.initialize <| \httpPerm ->
+        let
+            db =
+                -- TODO: get db url from env
+                Db.init httpPerm "http://localhost:12321/local"
+        in
         Node.startProgram
             { model =
                 { stdout = env.stdout
                 , stderr = env.stderr
                 , server = Nothing
+                , db = db
                 }
             , command =
-                Task.attempt CreateServerResult <|
-                    Http.createServer serverPermission config
+                Cmd.batch
+                    [ Db.transaction db migrations
+                        |> Task.attempt DbMigrationResult
+                    , HttpServer.createServer serverPermission config
+                        |> Task.attempt CreateServerResult
+                    ]
             }
 
 
@@ -54,8 +69,9 @@ init env =
 
 
 type Msg
-    = CreateServerResult (Result Http.ServerError Http.Server)
-    | GotRequest { request : Http.Request, response : Response }
+    = CreateServerResult (Result HttpServer.ServerError HttpServer.Server)
+    | DbMigrationResult (Result Db.Error (Array Int))
+    | GotRequest { request : HttpServer.Request, response : Response }
 
 
 update : Msg -> Model -> { model : Model, command : Cmd Msg }
@@ -78,7 +94,24 @@ update msg model =
                             |> print model.stderr
                             |> Task.execute
                     }
-        
+
+        DbMigrationResult result ->
+            when result is
+                Ok numChanges ->
+                    { model = model
+                    , command = Cmd.none
+                    }
+
+                Err error ->
+                    { model = model
+                    , command =
+                        -- TODO: real error message
+                        "Db failed to migrate: " ++ Debug.toString error
+                            |> print model.stderr
+                            |> Task.andThen (\_ -> Node.exitWithCode 1)
+                            |> Task.execute
+                    }
+                            
         GotRequest { request, response } ->
             { model = model
             , command = 
@@ -103,8 +136,77 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     when model.server is
         Just server ->
-            Http.onRequest server <| \req res -> 
+            HttpServer.onRequest server <| \req res -> 
                 GotRequest { request = req, response = res }
 
         Nothing ->
             Sub.none
+
+
+-- TODO: move to module
+
+migrations : Array { statement : String, parameters : Array Db.Encode.Value }
+migrations =
+    [ { statement = "PRAGMA foreign_keys = ON"
+      , parameters = []
+      }
+
+    , { statement = "PRAGMA busy_timeout = 5000"
+      , parameters = []
+      }
+
+    , { statement = 
+        """
+        CREATE TABLE IF NOT EXISTS user (
+            id INTEGER PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE
+        ) STRICT
+        """
+      , parameters = []
+      }
+
+    , { statement =
+        """
+        CREATE TABLE IF NOT EXISTS session (
+            id INTEGER PRIMARY KEY,
+            created INTEGER NOT NULL,
+            user_id INTEGER NOT NULL REFERENCES user(id),
+
+            -- Token used in email validation link.
+            validation_token TEXT NOT NULL UNIQUE,
+
+            -- Create and show this when user follows email validation link.
+            -- User will provide this to the CLI.
+            validation_code TEXT UNIQUE,
+
+            -- Token used by the CLI to fetch session token.
+            fetch_session_token TEXT NOT NULL UNIQUE,
+
+            -- Create and return this when CLI posts with validation_code and fetch_session_token
+            session_token TEXT UNIQUE
+        ) STRICT
+        """
+      , parameters = []
+      }
+
+    , { statement =
+        """
+        CREATE TABLE IF NOT EXISTS publishing_identity (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE
+        ) STRICT
+        """
+      , parameters = []
+      }
+
+    , { statement =
+        """
+        CREATE TABLE IF NOT EXISTS publishing_identity_users (
+            user_id INTEGER NOT NULL REFERENCES user(id),
+            publishing_identity_id INTEGER NOT NULL REFERENCES publishing_identity(id),
+            role TEXT
+        ) STRICT
+        """
+      , parameters = []
+      }
+    ]

@@ -1,6 +1,8 @@
 module Test.Main exposing (main)
 
 import Expect
+import HttpClient
+import Init
 import Node
 import Test
 import Test.E2E
@@ -10,8 +12,9 @@ import Test.Unit
 main : Effectful.Program a
 main =
     Node.defineSimpleProgram <| \env ->
-        Effectful.run env <|
-            Effectful.concat
-                [ Effectful.wrap <| Test.describe "Unit tests" Test.Unit.tests
-                , Effectful.describe "E2E tests" Test.E2E.tests
-                ]
+        Init.await HttpClient.initialize <| \httpPerm ->
+            Effectful.run env <|
+                Effectful.concat
+                    [ Effectful.wrap <| Test.describe "Unit tests" Test.Unit.tests
+                    , Effectful.describe "E2E tests" (Test.E2E.tests httpPerm)
+                    ]

@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "ws4sql": "^0.17.0-dev2"
+  }
+}
