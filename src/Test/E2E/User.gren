@@ -1,0 +1,19 @@
+module Test.E2E.User exposing (tests)
+
+
+import Expect
+import HttpClient
+import Test.Runner.Effectful exposing (Test, await, awaitError, concat, test)
+import Test.E2E.Helper exposing (get, post, expectBadStatus)
+
+
+tests : HttpClient.Permission -> Array Test
+tests httpPerm =
+    [ awaitError (get httpPerm "/user") "GET /" <| \response ->
+        test "404s" <| \_ ->
+            expectBadStatus 404 response
+
+    , await (post httpPerm "/user") "POST /user" <| \response ->
+        test "Does nothing for now" <| \_ ->
+            Expect.equal 200 response.statusCode
+    ]

@@ -2,26 +2,17 @@ module Test.E2E exposing (tests)
 
 import Expect
 import HttpClient
-import Task exposing (Task)
-import Test.Runner.Effectful exposing (Test, await, awaitError, test)
+import Test.Runner.Effectful exposing (Test, awaitError, concat, describe, test)
+import Test.E2E.Helper exposing (get, expectBadStatus)
+import Test.E2E.User
 
 
 tests : HttpClient.Permission -> Array Test
 tests httpPerm =
-    let
-        get : String -> Task (HttpClient.Error {}) (HttpClient.Response {})
-        get path =
-            HttpClient.get ("http://localhost:3000" ++ path)
-                |> HttpClient.expectAnything
-                |> HttpClient.send httpPerm
-    in
-    [ awaitError (get "/") "GET /" <| \response ->
-        test "404s" <| \_ ->
-            when response is
-                HttpClient.BadStatus r ->
-                    Expect.equal 404 r.statusCode
-                _ ->
-                    Expect.fail <|
-                        "Expected BadStatus. Got: " ++ 
-                        (Debug.toString response)
+    [ describe "User tests" (Test.E2E.User.tests httpPerm)
+    , describe "Home tests"
+        [ awaitError (get httpPerm "/") "GET /" <| \response ->
+            test "404s" <| \_ ->
+                expectBadStatus 404 response
+        ]
     ]
