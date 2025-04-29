@@ -127,7 +127,10 @@ route request response =
                 |> String.split "/"
                 |> Array.keepIf (\s -> s /= "")
     in
-    when path is
+    when { method = request.method, path = path } is
+        --{ method = POST, path = [ "users" ] } -> Route.User.create request.body
+        --{ method = GET, path = [ "users", "validate" ] -> Route.user
+        --{ method = GET, path = [ "sessions" ] -> Route.Session.get
         _ -> Route.Error.notFound response
 
 
