@@ -1,0 +1,12 @@
+module Route.Error exposing (notFound)
+
+
+import HttpServer.Response as Response exposing (Response)
+
+
+notFound : Response -> Cmd msg
+notFound response =
+    response
+        |> Response.setStatus 404
+        |> Response.setBody "not found"
+        |> Response.send

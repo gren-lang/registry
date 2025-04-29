@@ -4,10 +4,11 @@ import Bytes exposing (Bytes)
 import Db
 import Db.Encode
 import HttpClient
-import HttpServer exposing (ServerError(..), Method(..))
+import HttpServer exposing (Request, ServerError(..), Method(..))
 import HttpServer.Response as Response exposing (Response)
 import Init
 import Node exposing (Environment, Program)
+import Route.Error
 import Stream
 import Task exposing (Task)
 
@@ -114,12 +115,20 @@ update msg model =
                             
         GotRequest { request, response } ->
             { model = model
-            , command = 
-                response
-                    |> Response.setStatus 404
-                    |> Response.setBody "not found"
-                    |> Response.send
+            , command = route request response
             }
+
+
+route : Request -> Response -> Cmd Msg
+route request response =
+    let
+        path =
+            request.url.path
+                |> String.split "/"
+                |> Array.keepIf (\s -> s /= "")
+    in
+    when path is
+        _ -> Route.Error.notFound response
 
 
 print : Stream.Writable Bytes -> String -> Task Never {}
