@@ -171,7 +171,8 @@ migrations =
         """
         CREATE TABLE IF NOT EXISTS user (
             id INTEGER PRIMARY KEY,
-            email TEXT NOT NULL UNIQUE
+            email TEXT NOT NULL UNIQUE,
+            created INTEGER -- timestamp
         ) STRICT
         """
       , parameters = []
