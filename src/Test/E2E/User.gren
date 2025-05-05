@@ -9,7 +9,7 @@ import Test.E2E.Helper exposing (get, post, expectBadStatus)
 
 tests : HttpClient.Permission -> Array Test
 tests httpPerm =
-    [ awaitError (get httpPerm "/user") "GET /" <| \response ->
+    [ awaitError (get httpPerm "/user") "GET /user" <| \response ->
         test "404s" <| \_ ->
             expectBadStatus 404 response
 
