@@ -1,0 +1,12 @@
+module Route.User exposing
+    ( create
+    )
+
+
+import Bytes exposing (Bytes)
+import HttpServer.Response as Response exposing (Response)
+
+
+create : Response -> Bytes -> Cmd msg
+create response bytes =
+    Response.send response

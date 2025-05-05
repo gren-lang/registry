@@ -4,10 +4,12 @@ import Bytes exposing (Bytes)
 import Db
 import Db.Encode
 import HttpClient
-import HttpServer exposing (ServerError(..), Method(..))
+import HttpServer exposing (Request, ServerError(..), Method(..))
 import HttpServer.Response as Response exposing (Response)
 import Init
 import Node exposing (Environment, Program)
+import Route.Error
+import Route.User
 import Stream
 import Task exposing (Task)
 
@@ -114,12 +116,27 @@ update msg model =
                             
         GotRequest { request, response } ->
             { model = model
-            , command = 
-                response
-                    |> Response.setStatus 404
-                    |> Response.setBody "not found"
-                    |> Response.send
+            , command = route request response
             }
+
+
+route : Request -> Response -> Cmd Msg
+route request response =
+    let
+        path =
+            request.url.path
+                |> String.split "/"
+                |> Array.keepIf (\s -> s /= "")
+    in
+    when { method = request.method, path = path } is
+        { method = POST, path = [ "user" ] } ->
+            Route.User.create response request.body
+
+        --{ method = GET, path = [ "users", "validate" ] -> Route.user
+        --{ method = GET, path = [ "sessions" ] -> Route.Session.get
+
+        _ ->
+            Route.Error.notFound response
 
 
 print : Stream.Writable Bytes -> String -> Task Never {}
@@ -159,7 +176,8 @@ migrations =
         """
         CREATE TABLE IF NOT EXISTS user (
             id INTEGER PRIMARY KEY,
-            email TEXT NOT NULL UNIQUE
+            email TEXT NOT NULL UNIQUE,
+            created INTEGER NOT NULL -- timestamp
         ) STRICT
         """
       , parameters = []
