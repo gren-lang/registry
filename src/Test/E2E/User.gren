@@ -3,8 +3,9 @@ module Test.E2E.User exposing (tests)
 
 import Expect
 import HttpClient
-import Test.Runner.Effectful exposing (Test, await, awaitError, concat, test)
-import Test.E2E.Helper exposing (get, post, expectBadStatus)
+import Json.Encode
+import Test.Runner.Effectful exposing (Test, await, awaitError, describe, test)
+import Test.E2E.Helper exposing (get, post, postWithJson, expectBadStatus)
 
 
 tests : HttpClient.Permission -> Array Test
@@ -13,7 +14,38 @@ tests httpPerm =
         test "404s" <| \_ ->
             expectBadStatus 404 response
 
-    , await (post httpPerm "/user") "POST /user" <| \response ->
-        test "Does nothing for now" <| \_ ->
-            Expect.equal 200 response.statusCode
+    , describe "Create user" <|
+        let
+            withNoEmail =
+                post httpPerm "/user"
+
+
+            withBadEmail =
+                postWithJson httpPerm "/user" <|
+                    Json.Encode.object
+                        [ { key = "email"
+                          , value = Json.Encode.string "asdf" 
+                          }
+                        ]
+
+            withGoodEmail =
+                postWithJson httpPerm "/user" <|
+                    Json.Encode.object
+                        [ { key = "email"
+                          , value = Json.Encode.string "asdf@example.com" 
+                          }
+                        ]
+        in
+        [ awaitError withNoEmail "POST /user with no email" <| \response ->
+            test "Responds with 400 error" <| \_ ->
+                expectBadStatus 400 response
+
+        , awaitError withBadEmail "POST /user with bad email" <| \response ->
+            test "Responds with 400 error" <| \_ ->
+                expectBadStatus 400 response
+
+        , await withGoodEmail "POST /user with good email" <| \response ->
+            test "Does nothing for now" <| \_ ->
+                Expect.equal 200 response.statusCode
+        ]
     ]

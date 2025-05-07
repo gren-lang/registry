@@ -4,9 +4,67 @@ module Route.User exposing
 
 
 import Bytes exposing (Bytes)
+import Db
+import Email exposing (Email)
 import HttpServer.Response as Response exposing (Response)
+import Json.Decode
+
+
+type Error
+    = InvalidEmail
+    | DbError Db.Error
 
 
 create : Response -> Bytes -> Cmd msg
-create response bytes =
+create response body =
+    when getEmail body is
+        Nothing ->
+            failed response InvalidEmail
+        
+        Just email ->
+            success response
+            -- TODO: save email
+            --saveEmail email
+            --    |> Task.onError (\e -> failed response (DbError Db.Error)
+            --    |> Task.andThen (\_ -> success response)
+
+
+success : Response -> Cmd msg
+success response =
     Response.send response
+
+
+failed : Response -> Error -> Cmd msg
+failed response error =
+    when error is
+        InvalidEmail ->
+            response
+                |> Response.setStatus 400
+                -- TODO: helpful error message in json body
+                |> Response.send
+
+        DbError e ->
+            response
+                |> Response.setStatus 500
+                -- TODO: helpful error message in json body
+                |> Response.send
+
+
+getEmail : Bytes -> Maybe Email
+getEmail bytes =
+    bytes
+        |> Bytes.toString
+        |> Maybe.andThen decodeEmail
+        |> Maybe.andThen Email.fromString
+
+
+decodeEmail : String -> Maybe String
+decodeEmail json =
+    json
+        |> Json.Decode.decodeString emailDecoder
+        |> Result.toMaybe
+
+
+emailDecoder : Json.Decode.Decoder String
+emailDecoder =
+    Json.Decode.field "email" Json.Decode.string
