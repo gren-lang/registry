@@ -1,7 +1,7 @@
 dist/app: node_modules gren.json $(shell find src -name "*.gren")
 	gren make src/Main.gren --output=dist/app
 
-dist/test: gren.json $(shell find src/Test -name "*.gren")
+dist/test: dist/app
 	gren make src/Test/Main.gren --output=dist/test
 
 node_modules: package.json package-lock.json
