@@ -1,12 +1,11 @@
 module Test.Unit exposing (tests)
 
 import Expect
-import Test exposing (Test, test)
+import Test exposing (Test, describe, test)
+import Test.Unit.Email as Email
 
 
 tests : Array Test
 tests =
-    [ test "Has tests" <| \_ ->
-        Expect.equal True True
+    [ describe "Email tests" Email.tests
     ]
-
