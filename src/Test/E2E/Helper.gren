@@ -1,11 +1,13 @@
 module Test.E2E.Helper exposing
     ( expectBadStatus
+    , initDb
     , get
     , post
     , postWithJson
     )
 
 
+import Db
 import Expect exposing (Expectation)
 import HttpClient exposing (Response)
 import Json.Encode
@@ -15,6 +17,12 @@ import Task exposing (Task)
 url : String -> String
 url path =
     "http://localhost:3000" ++ path
+
+
+initDb : HttpClient.Permission -> Db.Connection
+initDb httpPerm =
+    -- TODO: get db url from env
+    Db.init httpPerm "http://localhost:12321/local"
 
 
 get : HttpClient.Permission -> String -> Task (HttpClient.Error {}) (HttpClient.Response {})

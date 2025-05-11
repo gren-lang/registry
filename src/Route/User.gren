@@ -23,8 +23,8 @@ create response body =
         
         Just email ->
             success response
-            -- TODO: save email
-            --saveEmail email
+            -- TODO: create user (first need routes to return Task, not Cmd)
+            --createUserIfNotExists email
             --    |> Task.onError (\e -> failed response (DbError Db.Error)
             --    |> Task.andThen (\_ -> success response)
 

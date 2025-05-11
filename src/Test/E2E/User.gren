@@ -1,38 +1,51 @@
 module Test.E2E.User exposing (tests)
 
 
+import Db
+import Db.Encode
+import Db.Decode
+import Email
 import Expect
 import HttpClient
 import Json.Encode
-import Test.Runner.Effectful exposing (Test, await, awaitError, describe, test)
-import Test.E2E.Helper exposing (get, post, postWithJson, expectBadStatus)
+import Task exposing (Task)
+import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test)
+import Test.E2E.Helper exposing (initDb, get, post, postWithJson, expectBadStatus)
+import User exposing (User)
 
 
 tests : HttpClient.Permission -> Array Test
 tests httpPerm =
+    let
+        db : Db.Connection
+        db =
+            initDb httpPerm
+
+        getUser : String -> Task Db.Error User
+        getUser email =
+            Db.getOne db
+                { query = "select * from user where email = :email"
+                , parameters = [ Db.Encode.string "email" email ]
+                , decoder = User.decoder
+                }
+    in
     [ awaitError (get httpPerm "/user") "GET /user" <| \response ->
         test "404s" <| \_ ->
             expectBadStatus 404 response
 
     , describe "Create user" <|
         let
+            goodEmail =
+                "abc@example.com"
+
             withNoEmail =
                 post httpPerm "/user"
 
-
-            withBadEmail =
+            withEmail email =
                 postWithJson httpPerm "/user" <|
                     Json.Encode.object
                         [ { key = "email"
-                          , value = Json.Encode.string "asdf" 
-                          }
-                        ]
-
-            withGoodEmail =
-                postWithJson httpPerm "/user" <|
-                    Json.Encode.object
-                        [ { key = "email"
-                          , value = Json.Encode.string "asdf@example.com" 
+                          , value = Json.Encode.string email
                           }
                         ]
         in
@@ -40,12 +53,20 @@ tests httpPerm =
             test "Responds with 400 error" <| \_ ->
                 expectBadStatus 400 response
 
-        , awaitError withBadEmail "POST /user with bad email" <| \response ->
+        , awaitError (withEmail "asdf") "POST /user with bad email" <| \response ->
             test "Responds with 400 error" <| \_ ->
                 expectBadStatus 400 response
 
-        , await withGoodEmail "POST /user with good email" <| \response ->
-            test "Does nothing for now" <| \_ ->
-                Expect.equal 200 response.statusCode
+        , await (withEmail goodEmail) "POST /user with good email" <| \response ->
+            concat
+                [ test "Responds successfully" <| \_ ->
+                    Expect.equal 200 response.statusCode
+
+                -- TODO: create user
+                --, await (getUser goodEmail) "Getting created user from db" <| \user ->
+                --    test "returns the created user" <| \_ ->
+                --        Email.toString user.email
+                --            |> Expect.equal goodEmail
+                ]
         ]
     ]

@@ -12,6 +12,7 @@ import Route.Error
 import Route.User
 import Stream
 import Task exposing (Task)
+import Test.E2E.Helper as Helper
 
 
 main : Program Model Msg
@@ -47,8 +48,7 @@ init env =
     Init.await HttpClient.initialize <| \httpPerm ->
         let
             db =
-                -- TODO: get db url from env
-                Db.init httpPerm "http://localhost:12321/local"
+                Helper.initDb httpPerm
         in
         Node.startProgram
             { model =

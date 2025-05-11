@@ -1,0 +1,47 @@
+module User exposing
+    ( User
+    , decoder
+    )
+
+
+import Db.Decode as Decode exposing (Decoder)
+import Email exposing (Email)
+import Time
+
+
+type alias User =
+    { id : Int
+    , created : Time.Posix
+    , email : Email
+    }
+
+
+decoder : Decoder User
+decoder =
+    let
+        toRecordDecoder =
+            Decode.get3
+                (Decode.int "id")
+                (Decode.posix "created")
+                (Decode.string "email")
+                (\id created email ->
+                    { id = id
+                    , created = created
+                    , email = email
+                    }
+                )
+
+        toUserDecoder { id, created, email } =
+            when (Email.fromString email) is
+                Just e ->
+                    Decode.succeed
+                        { id = id
+                        , created = created
+                        , email = e
+                        }
+
+                Nothing ->
+                    Decode.fail ("Invalid email: " ++ email)
+    in
+    toRecordDecoder
+        |> Decode.andThen toUserDecoder
