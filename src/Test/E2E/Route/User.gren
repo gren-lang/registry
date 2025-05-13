@@ -1,4 +1,4 @@
-module Test.E2E.User exposing (tests)
+module Test.E2E.Route.User exposing (tests)
 
 
 import Db
