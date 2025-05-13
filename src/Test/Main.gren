@@ -4,6 +4,7 @@ import Expect
 import HttpClient
 import Init
 import Node
+import Registry.Db
 import Test
 import Test.E2E
 import Test.Runner.Effectful as Effectful
@@ -14,7 +15,12 @@ main =
     Node.defineSimpleProgram <| \env ->
         Init.await HttpClient.initialize <| \httpPerm ->
             Effectful.run env <|
+                let
+                    migrate =
+                        Registry.Db.migrate (Helper.initDb httpPerm)
+                in
                 Effectful.concat
                     [ Effectful.wrap <| Test.describe "Unit tests" Test.Unit.tests
-                    , Effectful.describe "E2E tests" (Test.E2E.tests httpPerm)
+                    , await migrate "Run migrations for E2E tests" <| \_ ->
+                        Effectful.describe "E2E tests" (Test.E2E.tests httpPerm)
                     ]
