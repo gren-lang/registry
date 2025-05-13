@@ -8,6 +8,7 @@ import Db
 import Email exposing (Email)
 import HttpServer.Response as Response exposing (Response)
 import Json.Decode
+import Task exposing (Task)
 
 
 type Error
@@ -15,7 +16,7 @@ type Error
     | DbError Db.Error
 
 
-create : Response -> Bytes -> Cmd msg
+create : Response -> Bytes -> Task Never Response
 create response body =
     when getEmail body is
         Nothing ->
@@ -29,25 +30,25 @@ create response body =
             --    |> Task.andThen (\_ -> success response)
 
 
-success : Response -> Cmd msg
+success : Response -> Task Never Response
 success response =
-    Response.send response
+    Task.succeed response
 
 
-failed : Response -> Error -> Cmd msg
+failed : Response -> Error -> Task Never Response
 failed response error =
     when error is
         InvalidEmail ->
             response
                 |> Response.setStatus 400
                 -- TODO: helpful error message in json body
-                |> Response.send
+                |> Task.succeed
 
         DbError e ->
             response
                 |> Response.setStatus 500
                 -- TODO: helpful error message in json body
-                |> Response.send
+                |> Task.succeed
 
 
 getEmail : Bytes -> Maybe Email

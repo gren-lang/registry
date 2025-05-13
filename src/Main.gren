@@ -74,6 +74,7 @@ type Msg
     = CreateServerResult (Result HttpServer.ServerError HttpServer.Server)
     | DbMigrationResult (Result Db.Error (Array Int))
     | GotRequest { request : HttpServer.Request, response : Response }
+    | ResponseReady Response
 
 
 update : Msg -> Model -> { model : Model, command : Cmd Msg }
@@ -116,11 +117,19 @@ update msg model =
                             
         GotRequest { request, response } ->
             { model = model
-            , command = route request response
+            , command =
+                route request response
+                    |> Task.perform ResponseReady
+            }
+
+        ResponseReady response ->
+            { model = model
+            , command =
+                Response.send response
             }
 
 
-route : Request -> Response -> Cmd Msg
+route : Request -> Response -> Task Never Response
 route request response =
     let
         path =
