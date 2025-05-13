@@ -2,6 +2,7 @@ module Email exposing
     ( Email
     , fromString
     , toString
+    , example
     )
 
 
@@ -32,3 +33,9 @@ toString : Email -> String
 toString (Email emailString) =
     emailString
 
+
+{-| Example email used for testing.
+-}
+example : Email
+example =
+    Email "a@example.com"
