@@ -62,11 +62,10 @@ tests httpPerm =
                 [ test "Responds successfully" <| \_ ->
                     Expect.equal 200 response.statusCode
 
-                -- TODO: create user
-                --, await (getUser goodEmail) "Getting created user from db" <| \user ->
-                --    test "returns the created user" <| \_ ->
-                --        Email.toString user.email
-                --            |> Expect.equal goodEmail
+                , await (getUser goodEmail) "Getting created user from db" <| \user ->
+                    test "returns the created user" <| \_ ->
+                        Email.toString user.email
+                            |> Expect.equal goodEmail
                 ]
         ]
     ]

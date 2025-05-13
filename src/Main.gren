@@ -119,7 +119,7 @@ update msg model =
         GotRequest { request, response } ->
             { model = model
             , command =
-                route request response
+                route model request response
                     |> Task.perform ResponseReady
             }
 
@@ -130,8 +130,8 @@ update msg model =
             }
 
 
-route : Request -> Response -> Task Never Response
-route request response =
+route : Model -> Request -> Response -> Task Never Response
+route model request response =
     let
         path =
             request.url.path
@@ -140,7 +140,7 @@ route request response =
     in
     when { method = request.method, path = path } is
         { method = POST, path = [ "user" ] } ->
-            Route.User.create response request.body
+            Route.User.create model.db response request.body
 
         --{ method = GET, path = [ "users", "validate" ] -> Route.user
         --{ method = GET, path = [ "sessions" ] -> Route.Session.get

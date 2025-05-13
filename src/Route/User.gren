@@ -9,6 +9,7 @@ import Email exposing (Email)
 import HttpServer.Response as Response exposing (Response)
 import Json.Decode
 import Task exposing (Task)
+import User
 
 
 type Error
@@ -16,26 +17,29 @@ type Error
     | DbError Db.Error
 
 
-create : Response -> Bytes -> Task Never Response
-create response body =
-    when getEmail body is
-        Nothing ->
-            failed response InvalidEmail
+create : Db.Connection -> Response -> Bytes -> Task Never Response
+create db response body =
+    let
+        findOrCreateUser =
+            when getEmail body is
+                Nothing ->
+                    Task.fail InvalidEmail
         
-        Just email ->
-            success response
-            -- TODO: create user (first need routes to return Task, not Cmd)
-            --createUserIfNotExists email
-            --    |> Task.onError (\e -> failed response (DbError Db.Error)
-            --    |> Task.andThen (\_ -> success response)
+                Just email ->
+                    User.findOrCreate db email
+                        |> Task.mapError DbError
+    in
+    findOrCreateUser
+        |> Task.andThen (\_ -> success response)
+        |> Task.onError (\e -> failed response e)
 
 
-success : Response -> Task Never Response
+success : Response -> Task x Response
 success response =
     Task.succeed response
 
 
-failed : Response -> Error -> Task Never Response
+failed : Response -> Error -> Task x Response
 failed response error =
     when error is
         InvalidEmail ->

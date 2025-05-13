@@ -7,7 +7,8 @@ import Node
 import Registry.Db
 import Test
 import Test.E2E
-import Test.Runner.Effectful as Effectful
+import Test.E2E.Helper as Helper
+import Test.Runner.Effectful as Effectful exposing (await)
 import Test.Unit
 
 main : Effectful.Program a

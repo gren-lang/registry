@@ -1,11 +1,15 @@
 module User exposing
     ( User
     , decoder
+    , findOrCreate
     )
 
 
+import Db
 import Db.Decode as Decode exposing (Decoder)
+import Db.Encode as Encode
 import Email exposing (Email)
+import Task exposing (Task)
 import Time
 
 
@@ -45,3 +49,29 @@ decoder =
     in
     toRecordDecoder
         |> Decode.andThen toUserDecoder
+
+
+findOrCreate : Db.Connection -> Email -> Task Db.Error User
+findOrCreate db email =
+    let
+        encodedEmail =
+            Encode.string "email" (Email.toString email)
+
+        createUser =
+            Task.await Time.now <| \now ->
+                Db.execute db
+                    { statement = "INSERT OR IGNORE INTO user (created, email) VALUES (:created, :email)"
+                    , parameters =
+                        [ Encode.posix "created" now
+                        , encodedEmail
+                        ]
+                    }
+
+        getUser =
+            Db.getOne db
+                { query = "SELECT * FROM USER WHERE email = :email"
+                , parameters = [ encodedEmail ]
+                , decoder = decoder
+                }
+    in
+    createUser |> Task.andThen (\_ -> getUser)
