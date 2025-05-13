@@ -1,0 +1,32 @@
+module Test.E2E.User exposing (tests)
+
+
+import Db
+import Db.Encode
+import Db.Decode
+import Expect
+import HttpClient
+import Task exposing (Task)
+import Test.Runner.Effectful exposing (Test, await, describe, test)
+import Test.E2E.Helper exposing (initDb)
+import User exposing (User)
+
+
+tests : HttpClient.Permission -> Array Test
+tests httpPerm =
+    let
+        db : Db.Connection
+        db =
+            initDb httpPerm
+
+        getUser : String -> Task Db.Error User
+        getUser email =
+            Db.getOne db
+                { query = "select * from user where email = :email"
+                , parameters = [ Db.Encode.string "email" email ]
+                , decoder = User.decoder
+                }
+    in
+    [ test "needs tests" <| \_ ->
+        Expect.equal 1 1
+    ]

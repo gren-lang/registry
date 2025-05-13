@@ -5,11 +5,13 @@ import HttpClient
 import Test.Runner.Effectful exposing (Test, awaitError, concat, describe, test)
 import Test.E2E.Helper exposing (get, expectBadStatus)
 import Test.E2E.Route.User
+import Test.E2E.User
 
 
 tests : HttpClient.Permission -> Array Test
 tests httpPerm =
     [ describe "User route tests" (Test.E2E.Route.User.tests httpPerm)
+    , describe "User module tests" (Test.E2E.User.tests httpPerm)
     , describe "Home route tests"
         [ awaitError (get httpPerm "/") "GET /" <| \response ->
             test "404s" <| \_ ->
