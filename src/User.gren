@@ -22,33 +22,24 @@ type alias User =
 
 decoder : Decoder User
 decoder =
-    let
-        toRecordDecoder =
-            Decode.get3
-                (Decode.int "id")
-                (Decode.posix "created")
-                (Decode.string "email")
-                (\id created email ->
-                    { id = id
-                    , created = created
-                    , email = email
-                    }
-                )
-
-        toUserDecoder { id, created, email } =
-            when (Email.fromString email) is
-                Just e ->
-                    Decode.succeed
-                        { id = id
-                        , created = created
-                        , email = e
-                        }
-
-                Nothing ->
-                    Decode.fail ("Invalid email: " ++ email)
-    in
-    toRecordDecoder
-        |> Decode.andThen toUserDecoder
+    Decode.string "email"
+        |> Decode.andThen
+            (\email ->
+                when (Email.fromString email) is
+                    Nothing ->
+                        Decode.fail ("Invalid email: " ++ email)
+                    
+                    Just e ->
+                        Decode.get2
+                            (Decode.int "id")
+                            (Decode.posix "created")
+                            (\id created ->
+                                { id = id
+                                , created = created
+                                , email = e
+                                }
+                            )
+            )
 
 
 findOrCreate : Db.Connection -> Email -> Task Db.Error User
