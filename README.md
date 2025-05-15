@@ -59,7 +59,7 @@ Goals:
 Auth flow:
 
 1. CLI posts email address to the server (IN PROGRESS)
-    1. [ ] server finds or creates row in `user` table
+    1. [X] server finds or creates row in `user` table
     2. [ ] server creates new row in `session` table with:
         - `validation_token` for unique url for user to validate their email address and get a `validation_code`
         - `fetch_session_token` for unique url for cli to fetch session (along with `validation_code`)
