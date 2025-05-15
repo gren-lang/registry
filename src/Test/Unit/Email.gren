@@ -1,0 +1,47 @@
+module Test.Unit.Email exposing (tests)
+
+import Email
+import Expect
+import Fuzz exposing (Fuzzer)
+import Test exposing (Test, describe, test, fuzz)
+
+
+invalidEmails : Fuzzer String
+invalidEmails =
+    Fuzz.oneOfValues
+        [ ""
+        , "a"
+        , "b@"
+        , "c@d"
+        , "@d"
+        , "@d.com"
+        , " @d.com"
+        , "\n@d.com"
+        , "a@.com"
+        ]
+
+
+validEmails : Fuzzer String
+validEmails =
+    Fuzz.oneOfValues
+        [ "a@example.com"
+        , "abc@example.com"
+        , "justin@blaix.com"
+        , "justin@blog.blaix.com"
+        ]
+
+
+tests : Array Test
+tests =
+    [ fuzz invalidEmails "invalid emails" <| \invalid ->
+        Email.fromString invalid
+            |> Expect.equal Nothing
+    
+    , fuzz validEmails "valid emails" <| \valid ->
+        when Email.fromString valid is
+            Nothing ->
+                Expect.fail "valid email resulted in Nothing"
+            Just email ->
+                Email.toString email
+                    |> Expect.equal valid
+    ]

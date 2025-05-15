@@ -1,0 +1,41 @@
+module Email exposing
+    ( Email
+    , fromString
+    , toString
+    , example
+    )
+
+
+import String.Regex as Regex
+
+
+type Email
+    = Email String
+
+
+fromString : String -> Maybe Email
+fromString emailString =
+    let
+        emailRegex =
+             Regex.fromString "^.+@.+\\..+$"
+                 |> Maybe.withDefault Regex.never
+
+        trimmed =
+            String.trim emailString
+     in
+     if Regex.contains emailRegex trimmed then
+         Just (Email trimmed)
+     else
+        Nothing
+
+
+toString : Email -> String
+toString (Email emailString) =
+    emailString
+
+
+{-| Example email used for testing.
+-}
+example : Email
+example =
+    Email "a@example.com"

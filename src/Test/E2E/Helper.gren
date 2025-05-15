@@ -1,26 +1,52 @@
 module Test.E2E.Helper exposing
     ( expectBadStatus
+    , initDb
     , get
     , post
+    , postWithJson
     )
 
 
+import Db
 import Expect exposing (Expectation)
 import HttpClient exposing (Response)
+import Json.Encode
 import Task exposing (Task)
+
+
+url : String -> String
+url path =
+    "http://localhost:3000" ++ path
+
+
+initDb : HttpClient.Permission -> Db.Connection
+initDb httpPerm =
+    -- TODO: get db url from env
+    Db.init httpPerm "http://localhost:12321/local"
 
 
 get : HttpClient.Permission -> String -> Task (HttpClient.Error {}) (HttpClient.Response {})
 get httpPerm path =
-    HttpClient.get ("http://localhost:3000" ++ path)
+    url path
+        |> HttpClient.get
         |> HttpClient.expectAnything
         |> HttpClient.send httpPerm
 
 
 post : HttpClient.Permission -> String -> Task (HttpClient.Error {}) (HttpClient.Response {})
 post httpPerm path =
-    HttpClient.post ("http://localhost:3000" ++ path)
+    url path
+        |> HttpClient.post
         |> HttpClient.expectAnything
+        |> HttpClient.send httpPerm
+
+
+postWithJson : HttpClient.Permission -> String -> Json.Encode.Value -> Task (HttpClient.Error {}) (HttpClient.Response {})
+postWithJson httpPerm path json =
+    url path
+        |> HttpClient.post
+        |> HttpClient.expectAnything
+        |> HttpClient.withJsonBody json
         |> HttpClient.send httpPerm
 
 

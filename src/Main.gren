@@ -8,10 +8,12 @@ import HttpServer exposing (Request, ServerError(..), Method(..))
 import HttpServer.Response as Response exposing (Response)
 import Init
 import Node exposing (Environment, Program)
+import Registry.Db
 import Route.Error
 import Route.User
 import Stream
 import Task exposing (Task)
+import Test.E2E.Helper as Helper
 
 
 main : Program Model Msg
@@ -47,8 +49,7 @@ init env =
     Init.await HttpClient.initialize <| \httpPerm ->
         let
             db =
-                -- TODO: get db url from env
-                Db.init httpPerm "http://localhost:12321/local"
+                Helper.initDb httpPerm
         in
         Node.startProgram
             { model =
@@ -59,7 +60,7 @@ init env =
                 }
             , command =
                 Cmd.batch
-                    [ Db.transaction db migrations
+                    [ Registry.Db.migrate db 
                         |> Task.attempt DbMigrationResult
                     , HttpServer.createServer serverPermission config
                         |> Task.attempt CreateServerResult
@@ -74,6 +75,7 @@ type Msg
     = CreateServerResult (Result HttpServer.ServerError HttpServer.Server)
     | DbMigrationResult (Result Db.Error (Array Int))
     | GotRequest { request : HttpServer.Request, response : Response }
+    | ResponseReady Response
 
 
 update : Msg -> Model -> { model : Model, command : Cmd Msg }
@@ -116,12 +118,20 @@ update msg model =
                             
         GotRequest { request, response } ->
             { model = model
-            , command = route request response
+            , command =
+                route model request response
+                    |> Task.perform ResponseReady
+            }
+
+        ResponseReady response ->
+            { model = model
+            , command =
+                Response.send response
             }
 
 
-route : Request -> Response -> Cmd Msg
-route request response =
+route : Model -> Request -> Response -> Task Never Response
+route model request response =
     let
         path =
             request.url.path
@@ -130,7 +140,7 @@ route request response =
     in
     when { method = request.method, path = path } is
         { method = POST, path = [ "user" ] } ->
-            Route.User.create response request.body
+            Route.User.create model.db response request.body
 
         --{ method = GET, path = [ "users", "validate" ] -> Route.user
         --{ method = GET, path = [ "sessions" ] -> Route.Session.get
@@ -159,72 +169,3 @@ subscriptions model =
         Nothing ->
             Sub.none
 
-
--- TODO: move to module
-
-migrations : Array { statement : String, parameters : Array Db.Encode.Value }
-migrations =
-    [ { statement = "PRAGMA foreign_keys = ON"
-      , parameters = []
-      }
-
-    , { statement = "PRAGMA busy_timeout = 5000"
-      , parameters = []
-      }
-
-    , { statement = 
-        """
-        CREATE TABLE IF NOT EXISTS user (
-            id INTEGER PRIMARY KEY,
-            email TEXT NOT NULL UNIQUE,
-            created INTEGER NOT NULL -- timestamp
-        ) STRICT
-        """
-      , parameters = []
-      }
-
-    , { statement =
-        """
-        CREATE TABLE IF NOT EXISTS session (
-            id INTEGER PRIMARY KEY,
-            created INTEGER NOT NULL,
-            user_id INTEGER NOT NULL REFERENCES user(id),
-
-            -- Token used in email validation link.
-            validation_token TEXT NOT NULL UNIQUE,
-
-            -- Create and show this when user follows email validation link.
-            -- User will provide this to the CLI.
-            validation_code TEXT UNIQUE,
-
-            -- Token used by the CLI to fetch session token.
-            fetch_session_token TEXT NOT NULL UNIQUE,
-
-            -- Create and return this when CLI posts with validation_code and fetch_session_token
-            session_token TEXT UNIQUE
-        ) STRICT
-        """
-      , parameters = []
-      }
-
-    , { statement =
-        """
-        CREATE TABLE IF NOT EXISTS publishing_identity (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE
-        ) STRICT
-        """
-      , parameters = []
-      }
-
-    , { statement =
-        """
-        CREATE TABLE IF NOT EXISTS publishing_identity_users (
-            user_id INTEGER NOT NULL REFERENCES user(id),
-            publishing_identity_id INTEGER NOT NULL REFERENCES publishing_identity(id),
-            role TEXT
-        ) STRICT
-        """
-      , parameters = []
-      }
-    ]

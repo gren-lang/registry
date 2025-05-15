@@ -1,0 +1,76 @@
+module Registry.Db exposing
+    ( migrate
+    )
+
+
+import Db
+import Task exposing (Task)
+
+
+migrate : Db.Connection -> Task Db.Error (Array Int)
+migrate db =
+    Db.transaction db
+        [ { statement = "PRAGMA foreign_keys = ON"
+          , parameters = []
+          }
+
+        , { statement = "PRAGMA busy_timeout = 5000"
+          , parameters = []
+          }
+
+        , { statement = 
+            """
+            CREATE TABLE IF NOT EXISTS user (
+                id INTEGER PRIMARY KEY,
+                email TEXT NOT NULL UNIQUE,
+                created INTEGER NOT NULL -- timestamp
+            ) STRICT
+            """
+          , parameters = []
+          }
+
+        , { statement =
+            """
+            CREATE TABLE IF NOT EXISTS session (
+                id INTEGER PRIMARY KEY,
+                created INTEGER NOT NULL,
+                user_id INTEGER NOT NULL REFERENCES user(id),
+
+                -- Token used in email validation link.
+                validation_token TEXT NOT NULL UNIQUE,
+
+                -- Create and show this when user follows email validation link.
+                -- User will provide this to the CLI.
+                validation_code TEXT UNIQUE,
+
+                -- Token used by the CLI to fetch session token.
+                fetch_session_token TEXT NOT NULL UNIQUE,
+
+                -- Create and return this when CLI posts with validation_code and fetch_session_token
+                session_token TEXT UNIQUE
+            ) STRICT
+            """
+          , parameters = []
+          }
+
+        , { statement =
+            """
+            CREATE TABLE IF NOT EXISTS publishing_identity (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE
+            ) STRICT
+            """
+          , parameters = []
+          }
+
+        , { statement =
+            """
+            CREATE TABLE IF NOT EXISTS publishing_identity_users (
+                user_id INTEGER NOT NULL REFERENCES user(id),
+                publishing_identity_id INTEGER NOT NULL REFERENCES publishing_identity(id),
+                role TEXT
+            ) STRICT
+            """
+          , parameters = []
+          }
+        ]
