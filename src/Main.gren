@@ -10,7 +10,7 @@ import Init
 import Node exposing (Environment, Program)
 import Registry.Db
 import Route.Error
-import Route.User
+import Route.Session
 import Stream
 import Task exposing (Task)
 import Test.E2E.Helper as Helper
@@ -139,11 +139,8 @@ route model request response =
                 |> Array.keepIf (\s -> s /= "")
     in
     when { method = request.method, path = path } is
-        { method = POST, path = [ "user" ] } ->
-            Route.User.create model.db response request.body
-
-        --{ method = GET, path = [ "users", "validate" ] -> Route.user
-        --{ method = GET, path = [ "sessions" ] -> Route.Session.get
+        { method = POST, path = [ "session" ] } ->
+            Route.Session.create model.db response request.body
 
         _ ->
             Route.Error.notFound response

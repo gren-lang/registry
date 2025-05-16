@@ -1,4 +1,4 @@
-module Test.E2E.Route.User exposing (tests)
+module Test.E2E.Route.Session exposing (tests)
 
 
 import Db
@@ -29,35 +29,35 @@ tests httpPerm =
                 , decoder = User.decoder
                 }
     in
-    [ awaitError (get httpPerm "/user") "GET /user" <| \response ->
+    [ awaitError (get httpPerm "/session") "GET /session" <| \response ->
         test "404s" <| \_ ->
             expectBadStatus 404 response
 
-    , describe "Create user" <|
+    , describe "Create session" <|
         let
             goodEmail =
                 "abc@example.com"
 
             withNoEmail =
-                post httpPerm "/user"
+                post httpPerm "/session"
 
             withEmail email =
-                postWithJson httpPerm "/user" <|
+                postWithJson httpPerm "/session" <|
                     Json.Encode.object
                         [ { key = "email"
                           , value = Json.Encode.string email
                           }
                         ]
         in
-        [ awaitError withNoEmail "POST /user with no email" <| \response ->
+        [ awaitError withNoEmail "POST /session with no email" <| \response ->
             test "Responds with 400 error" <| \_ ->
                 expectBadStatus 400 response
 
-        , awaitError (withEmail "asdf") "POST /user with bad email" <| \response ->
+        , awaitError (withEmail "asdf") "POST /session with bad email" <| \response ->
             test "Responds with 400 error" <| \_ ->
                 expectBadStatus 400 response
 
-        , await (withEmail goodEmail) "POST /user with good email" <| \response ->
+        , await (withEmail goodEmail) "POST /session with good email" <| \response ->
             concat
                 [ test "Responds successfully" <| \_ ->
                     Expect.equal 200 response.statusCode
