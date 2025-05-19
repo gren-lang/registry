@@ -49,6 +49,16 @@ Run tests with `devbox run test`
 * [ ] Refresh tokens?
 * [ ] Prevent spamming endpoints? (e.g. bots flooding system with spam users or publishing identities)
 
+## TODO
+
+* [ ] User Authentication API (in progress - see below)
+* [ ] Package search
+* [ ] Package docs
+    * [ ] Avoid ambiguous type names (e.g. `Task` vs `Init.Task`)
+    * [ ] Enable links to specific sections
+    * [ ] Avoid ambiguous section anchors (e.g. [focus](https://package.elm-lang.org/packages/elm/browser/latest/Browser-Dom#focus) section vs function)
+    * [ ] Package doc search
+
 ## User Authentication
 
 Goals:
