@@ -112,8 +112,8 @@ update msg model =
                         -- TODO: real error message
                         "Db failed to migrate: " ++ Debug.toString error
                             |> print model.stderr
-                            |> Task.andThen (\_ -> Node.exitWithCode 1)
-                            |> Task.execute
+                            |> Task.map (\_ -> Node.exitWithCode 1)
+                            |> Task.executeCmd
                     }
                             
         GotRequest { request, response } ->

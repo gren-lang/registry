@@ -25,7 +25,7 @@ initDb httpPerm =
     Db.init httpPerm "http://localhost:12321/local"
 
 
-get : HttpClient.Permission -> String -> Task (HttpClient.Error {}) (HttpClient.Response {})
+get : HttpClient.Permission -> String -> Task HttpClient.Error (HttpClient.Response {})
 get httpPerm path =
     url path
         |> HttpClient.get
@@ -33,7 +33,7 @@ get httpPerm path =
         |> HttpClient.send httpPerm
 
 
-post : HttpClient.Permission -> String -> Task (HttpClient.Error {}) (HttpClient.Response {})
+post : HttpClient.Permission -> String -> Task HttpClient.Error (HttpClient.Response {})
 post httpPerm path =
     url path
         |> HttpClient.post
@@ -41,7 +41,7 @@ post httpPerm path =
         |> HttpClient.send httpPerm
 
 
-postWithJson : HttpClient.Permission -> String -> Json.Encode.Value -> Task (HttpClient.Error {}) (HttpClient.Response {})
+postWithJson : HttpClient.Permission -> String -> Json.Encode.Value -> Task HttpClient.Error (HttpClient.Response {})
 postWithJson httpPerm path json =
     url path
         |> HttpClient.post
@@ -50,7 +50,7 @@ postWithJson httpPerm path json =
         |> HttpClient.send httpPerm
 
 
-expectBadStatus : Int -> HttpClient.Error a -> Expectation
+expectBadStatus : Int -> HttpClient.Error -> Expectation
 expectBadStatus status error =
     when error is
         HttpClient.BadStatus r ->

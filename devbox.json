@@ -1,12 +1,11 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.6/.schema/devbox.schema.json",
   "packages": [
-    "github:gren-lang/nix/0.5.4",
-    "nodejs@20"
+    "nodejs@20",
+    "gren@0.6.2"
   ],
   "shell": {
-    "init_hook": [
-    ],
+    "init_hook": [],
     "scripts": {
       "test": [
         "./test.sh"

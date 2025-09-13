@@ -1,8 +1,8 @@
 dist/app: node_modules gren.json $(shell find src -name "*.gren")
-	gren make src/Main.gren --output=dist/app
+	gren make Main --output=dist/app
 
 dist/test: dist/app
-	gren make src/Test/Main.gren --output=dist/test
+	gren make Test.Main --output=dist/test
 
 node_modules: package.json package-lock.json
 	npm install
