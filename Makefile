@@ -6,6 +6,7 @@ dist/test: dist/app
 
 node_modules: package.json package-lock.json
 	npm install
+	touch -m node_modules
 
 .PHONY: db
 db: node_modules
