@@ -37,11 +37,11 @@ migrate db =
                 user_id INTEGER NOT NULL REFERENCES user(id),
 
                 -- Token used in email validation link.
-                validation_token TEXT NOT NULL UNIQUE,
+                email_validation_token TEXT NOT NULL UNIQUE,
 
                 -- Create and show this when user follows email validation link.
                 -- User will provide this to the CLI.
-                validation_code TEXT UNIQUE,
+                cli_validation_token TEXT UNIQUE,
 
                 -- Token used by the CLI to fetch session token.
                 fetch_session_token TEXT NOT NULL UNIQUE,
