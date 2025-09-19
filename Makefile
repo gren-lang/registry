@@ -5,7 +5,7 @@ dist/test: dist/app
 	gren make Test.Main --output=dist/test
 
 node_modules: package.json package-lock.json
-	npm install
+	npm ci
 
 .PHONY: db
 db: node_modules
