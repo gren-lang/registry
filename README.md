@@ -71,9 +71,9 @@ Auth flow:
 1. CLI posts email address to the server (IN PROGRESS)
     1. [X] server finds or creates row in `user` table
     2. [ ] server creates new row in `session` table with:
-        - `validation_token` for unique url for user to validate their email address and get a `validation_code`
+        - `email_validation_token` for unique url for user to validate their email address and get a `validation_code`
         - `fetch_session_token` for unique url for cli to fetch session (along with `validation_code`)
-    4. [ ] server emails validation link with `validation_token` (postmark)
+    4. [ ] server emails validation link with `email_validation_token` (postmark)
     5. [ ] server returns fetch session link with `fetch_session_token`
 2. User follows email validation link to get a validation code.
 3. User enters validation code on the CLI, where it was prompting/waiting for it.
