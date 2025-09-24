@@ -10,9 +10,10 @@ import Test.E2E.User
 
 tests : HttpClient.Permission -> Array Test
 tests httpPerm =
-    [ describe "User route tests" (Test.E2E.Route.Session.tests httpPerm)
+    [ describe "Session route tests" (Test.E2E.Route.Session.tests httpPerm)
     , describe "User module tests" (Test.E2E.User.tests httpPerm)
     , describe "Home route tests"
+        -- There is no Home route yet
         [ awaitError (get httpPerm "/") "GET /" <| \response ->
             test "404s" <| \_ ->
                 expectBadStatus 404 response
