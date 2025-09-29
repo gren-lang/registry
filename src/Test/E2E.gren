@@ -14,7 +14,7 @@ tests httpPerm =
     , describe "User module tests" (Test.E2E.User.tests httpPerm)
     , describe "Home route tests"
         -- There is no Home route yet
-        [ awaitError (get httpPerm "/") "GET /" <| \response ->
+        [ awaitError "GET /" (get httpPerm "/") <| \response ->
             test "404s" <| \_ ->
                 expectBadStatus 404 response
         ]

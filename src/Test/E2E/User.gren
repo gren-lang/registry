@@ -40,11 +40,11 @@ tests httpPerm =
             User.findOrCreate db Email.example
     in
     [ describe "User.findOrCreate"
-        [ await dropUsers "drop users" <| \_ ->
-          await countUsers "get user count: first call" <| \count1 ->
-          await findOrCreateUser "find or create user: first call" <| \user1 ->
-          await findOrCreateUser "find or create user: second call" <| \user2 ->
-          await countUsers "get user count: second call" <| \count2 ->
+        [ await "drop users" dropUsers <| \_ ->
+          await "get user count: first call" countUsers <| \count1 ->
+          await "find or create user: first call" findOrCreateUser <| \user1 ->
+          await "find or create user: second call" findOrCreateUser <| \user2 ->
+          await "get user count: second call" countUsers <| \count2 ->
             concat
                 [ test "always returns the same user" <| \_ ->
                     Expect.equal user1.email user2.email

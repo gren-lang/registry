@@ -29,7 +29,7 @@ tests httpPerm =
                 , decoder = User.decoder
                 }
     in
-    [ awaitError (get httpPerm "/session") "GET /session" <| \response ->
+    [ awaitError "GET /session" (get httpPerm "/session") <| \response ->
         test "404s" <| \_ ->
             expectBadStatus 404 response
 
@@ -49,20 +49,20 @@ tests httpPerm =
                           }
                         ]
         in
-        [ awaitError withNoEmail "POST /session with no email" <| \response ->
+        [ awaitError "POST /session with no email" withNoEmail <| \response ->
             test "Responds with 400 error" <| \_ ->
                 expectBadStatus 400 response
 
-        , awaitError (withEmail "asdf") "POST /session with bad email" <| \response ->
+        , awaitError "POST /session with bad email" (withEmail "asdf") <| \response ->
             test "Responds with 400 error" <| \_ ->
                 expectBadStatus 400 response
 
-        , await (withEmail goodEmail) "POST /session with good email" <| \response ->
+        , await "POST /session with good email" (withEmail goodEmail) <| \response ->
             concat
                 [ test "Responds successfully" <| \_ ->
                     Expect.equal 200 response.statusCode
 
-                , await (getUser goodEmail) "Getting created user from db" <| \user ->
+                , await "Getting created user from db" (getUser goodEmail) <| \user ->
                     test "returns the created user" <| \_ ->
                         Email.toString user.email
                             |> Expect.equal goodEmail
