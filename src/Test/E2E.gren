@@ -5,6 +5,7 @@ import HttpClient
 import Test.Runner.Effectful exposing (Test, awaitError, concat, describe, test)
 import Test.E2E.Helper exposing (get, expectBadStatus, initDb)
 import Test.E2E.Route.Session
+import Test.E2E.Session
 import Test.E2E.User
 
 
@@ -15,6 +16,7 @@ tests httpPerm =
             initDb httpPerm
     in
     [ describe "Session route tests" (Test.E2E.Route.Session.tests httpPerm)
+    , describe "Session module tests" (Test.E2E.Session.tests db)
     , describe "User module tests" (Test.E2E.User.tests db)
     , describe "Home route tests"
         -- There is no Home route yet

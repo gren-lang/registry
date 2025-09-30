@@ -1,5 +1,6 @@
 module Test.E2E.Helper exposing
     ( expectBadStatus
+    , expectJson
     , initDb
     , get
     , post
@@ -7,11 +8,15 @@ module Test.E2E.Helper exposing
     )
 
 
+import Bytes exposing (Bytes)
 import Db
+import Email
 import Expect exposing (Expectation)
 import HttpClient exposing (Response)
+import Json.Decode
 import Json.Encode
 import Task exposing (Task)
+import User
 
 
 url : String -> String
@@ -41,11 +46,11 @@ post httpPerm path =
         |> HttpClient.send httpPerm
 
 
-postWithJson : HttpClient.Permission -> String -> Json.Encode.Value -> Task HttpClient.Error (HttpClient.Response {})
+postWithJson : HttpClient.Permission -> String -> Json.Encode.Value -> Task HttpClient.Error (HttpClient.Response Bytes)
 postWithJson httpPerm path json =
     url path
         |> HttpClient.post
-        |> HttpClient.expectAnything
+        |> HttpClient.expectBytes
         |> HttpClient.withJsonBody json
         |> HttpClient.send httpPerm
 
@@ -59,3 +64,18 @@ expectBadStatus status error =
             Expect.fail <|
                 "Expected HttpClient.BadStatus, Got: " ++
                 (Debug.toString error)
+
+
+expectJson : Json.Decode.Decoder a -> a -> Bytes -> Expectation
+expectJson decoder expected bytes =
+    when Bytes.toString bytes is
+        Nothing ->
+            Expect.fail "Failed to decode bytes"
+
+        Just json ->
+            when Json.Decode.decodeString decoder json is
+                Ok value ->
+                    Expect.equal expected value
+
+                Err error ->
+                    Expect.fail (Json.Decode.errorToString error)
