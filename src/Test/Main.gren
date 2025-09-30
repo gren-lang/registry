@@ -22,6 +22,6 @@ main =
                 in
                 Effectful.concat
                     [ Effectful.wrap <| Test.describe "Unit tests" Test.Unit.tests
-                    , await migrate "Run migrations for E2E tests" <| \_ ->
+                    , await "Run migrations for E2E tests" migrate <| \_ ->
                         Effectful.describe "E2E tests" (Test.E2E.tests httpPerm)
                     ]

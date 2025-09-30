@@ -9,7 +9,7 @@ import Email exposing (Email)
 import HttpServer.Response as Response exposing (Response)
 import Json.Decode
 import Task exposing (Task)
-import User
+import User exposing (User)
 
 
 type Error
@@ -18,20 +18,21 @@ type Error
 
 
 create : Db.Connection -> Response -> Bytes -> Task Never Response
-create db response body =
-    let
-        findOrCreateUser =
-            when getEmail body is
-                Nothing ->
-                    Task.fail InvalidEmail
-        
-                Just email ->
-                    User.findOrCreate db email
-                        |> Task.mapError DbError
-    in
-    findOrCreateUser
+create db response requestBody =
+    findOrCreateUser db requestBody
         |> Task.andThen (\_ -> success response)
         |> Task.onError (\e -> failed response e)
+
+
+findOrCreateUser : Db.Connection -> Bytes -> Task Error User
+findOrCreateUser db requestBody =
+    when getEmail requestBody is
+        Nothing ->
+            Task.fail InvalidEmail
+
+        Just email ->
+            User.findOrCreate db email
+                |> Task.mapError DbError
 
 
 success : Response -> Task x Response

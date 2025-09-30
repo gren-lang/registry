@@ -4,51 +4,51 @@
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
       "resolved": "github:NixOS/nixpkgs/3549532663732bfd89993204d40543e9edaec4f2?lastModified=1742272065&narHash=sha256-ud8vcSzJsZ%2FCK%2Br8%2Fv0lyf4yUntVmDq6Z0A41ODfWbE%3D"
     },
-    "gren@0.6.2": {
-      "last_modified": "2025-08-05T11:35:34Z",
-      "resolved": "github:NixOS/nixpkgs/a683adc19ff5228af548c6539dbc3440509bfed3#gren",
+    "gren@0.6.3": {
+      "last_modified": "2025-09-18T16:33:27Z",
+      "resolved": "github:NixOS/nixpkgs/f4b140d5b253f5e2a1ff4e5506edbf8267724bde#gren",
       "source": "devbox-search",
-      "version": "0.6.2",
+      "version": "0.6.3",
       "systems": {
         "aarch64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/1p0vb5l9vq8j9bhna05hzgzqygb05cjk-gren-0.6.2",
+              "path": "/nix/store/clr249d9d9rlqs3fsgj2lb4m97ph2hms-gren-0.6.3",
               "default": true
             }
           ],
-          "store_path": "/nix/store/1p0vb5l9vq8j9bhna05hzgzqygb05cjk-gren-0.6.2"
+          "store_path": "/nix/store/clr249d9d9rlqs3fsgj2lb4m97ph2hms-gren-0.6.3"
         },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/vr3jccalhkhpsz53dpvx8sd9q2d2wy3s-gren-0.6.2",
+              "path": "/nix/store/zgx86f6s63l0ckj78psmkdkwqfxr3770-gren-0.6.3",
               "default": true
             }
           ],
-          "store_path": "/nix/store/vr3jccalhkhpsz53dpvx8sd9q2d2wy3s-gren-0.6.2"
+          "store_path": "/nix/store/zgx86f6s63l0ckj78psmkdkwqfxr3770-gren-0.6.3"
         },
         "x86_64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/jdh0sfgc5144b2l7fwyq0qzax65pxgcx-gren-0.6.2",
+              "path": "/nix/store/1gdj8kkrb5d945rklcxwqzl8s55kjpyx-gren-0.6.3",
               "default": true
             }
           ],
-          "store_path": "/nix/store/jdh0sfgc5144b2l7fwyq0qzax65pxgcx-gren-0.6.2"
+          "store_path": "/nix/store/1gdj8kkrb5d945rklcxwqzl8s55kjpyx-gren-0.6.3"
         },
         "x86_64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/qqni6nqfjb1kw4qg7ad0hkvjrk78ir69-gren-0.6.2",
+              "path": "/nix/store/xhc5c5vl8jxxm0jrr8vap34agz3f6yfi-gren-0.6.3",
               "default": true
             }
           ],
-          "store_path": "/nix/store/qqni6nqfjb1kw4qg7ad0hkvjrk78ir69-gren-0.6.2"
+          "store_path": "/nix/store/xhc5c5vl8jxxm0jrr8vap34agz3f6yfi-gren-0.6.3"
         }
       }
     },
