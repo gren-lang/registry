@@ -6,20 +6,15 @@ import Db.Encode
 import Db.Decode
 import Email
 import Expect
-import HttpClient
 import Task exposing (Task)
 import Test.Runner.Effectful exposing (Test, await, concat, describe, test)
 import Test.E2E.Helper exposing (initDb)
 import User exposing (User)
 
 
-tests : HttpClient.Permission -> Array Test
-tests httpPerm =
+tests : Db.Connection -> Array Test
+tests db =
     let
-        db : Db.Connection
-        db =
-            initDb httpPerm
-
         dropUsers : Task Db.Error Int
         dropUsers =
             Db.execute db

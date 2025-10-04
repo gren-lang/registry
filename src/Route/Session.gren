@@ -8,20 +8,24 @@ import Db
 import Email exposing (Email)
 import HttpServer.Response as Response exposing (Response)
 import Json.Decode
+import Json.Encode
+import Session exposing (Session)
 import Task exposing (Task)
 import User exposing (User)
 
 
 type Error
     = InvalidEmail
+    | NoSecureContext
     | DbError Db.Error
 
 
 create : Db.Connection -> Response -> Bytes -> Task Never Response
 create db response requestBody =
     findOrCreateUser db requestBody
-        |> Task.andThen (\_ -> success response)
-        |> Task.onError (\e -> failed response e)
+        |> Task.andThen (createSession db)
+        |> Task.map (createSuccess response)
+        |> Task.onError (createFailed response)
 
 
 findOrCreateUser : Db.Connection -> Bytes -> Task Error User
@@ -35,13 +39,34 @@ findOrCreateUser db requestBody =
                 |> Task.mapError DbError
 
 
-success : Response -> Task x Response
-success response =
-    Task.succeed response
+createSession : Db.Connection -> User -> Task Error Session
+createSession db user =
+    Session.create db user
+        |> Task.mapError 
+            (\error ->
+                when error is
+                    Session.DbError dbError -> DbError dbError
+                    Session.NoSecureContext -> NoSecureContext
+            )
 
 
-failed : Response -> Error -> Task x Response
-failed response error =
+createSuccess : Response -> Session -> Response
+createSuccess response session =
+    let
+        responseJson =
+            Json.Encode.object
+                [ { key = "fetchSessionToken"
+                  , value = Json.Encode.string session.fetchSessionToken
+                  }
+                ]
+    in
+    response
+        |> Response.setHeader "Content-Type" "application/json"
+        |> Response.setBody (Json.Encode.encode 0 responseJson)
+
+
+createFailed : Response -> Error -> Task x Response
+createFailed response error =
     when error is
         InvalidEmail ->
             response
@@ -50,6 +75,12 @@ failed response error =
                 |> Task.succeed
 
         DbError e ->
+            response
+                |> Response.setStatus 500
+                -- TODO: helpful error message in json body
+                |> Task.succeed
+
+        NoSecureContext ->
             response
                 |> Response.setStatus 500
                 -- TODO: helpful error message in json body
