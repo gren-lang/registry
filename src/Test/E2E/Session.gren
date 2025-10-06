@@ -1,0 +1,42 @@
+module Test.E2E.Session exposing (tests)
+
+
+import Db
+import Db.Encode
+import Db.Decode
+import Email
+import Expect
+import Session
+import Task exposing (Task)
+import Test.Runner.Effectful exposing (Test, await, concat, describe, test)
+import User exposing (User)
+
+
+tests : Db.Connection -> Array Test
+tests db =
+    let
+        getUser : Task Db.Error User
+        getUser =
+            User.findOrCreate db Email.example
+
+        countUserSessions : User -> Task Db.Error Int
+        countUserSessions user =
+            Db.getOne db
+                { query = "select count(*) as count from session where user_id = :user_id"
+                , parameters = [ Db.Encode.int "user_id" user.id ]
+                , decoder = Db.Decode.int "count"
+                }
+    in
+    [ describe "Session.create"
+        [ await "Create test user" getUser <| \user ->
+          await "Get initial session count" (countUserSessions user) <| \countBeforeCreate ->
+          await "Create session" (Session.create db user) <| \session ->
+          await "Get new session count" (countUserSessions user) <| \countAfterCreate ->
+            concat
+                [ test "Session is created" <| \_ ->
+                    Expect.equal (countBeforeCreate + 1) countAfterCreate
+                , test "Session is created for user" <| \_ ->
+                    Expect.equal user.id session.userId
+                ]
+        ]
+    ]

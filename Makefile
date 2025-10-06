@@ -1,4 +1,4 @@
-dist/app: node_modules gren.json $(shell find src -name "*.gren")
+dist/app: node_modules gren.json gren_packages $(shell find src -name "*.gren")
 	gren make Main --output=dist/app
 
 dist/test: dist/app
@@ -6,6 +6,9 @@ dist/test: dist/app
 
 node_modules: package.json package-lock.json
 	npm ci
+
+gren_packages: gren.json
+	gren package install
 
 .PHONY: db
 db: node_modules

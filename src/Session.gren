@@ -1,0 +1,66 @@
+module Session exposing
+    ( Session
+    , Error(..)
+    , create
+    )
+
+
+import Crypto
+import Db
+import Db.Encode
+import Db.Decode
+import Task exposing (Task)
+import Time
+import User exposing (User)
+
+
+type alias Session =
+    { created : Time.Posix
+    , userId : Int
+    , emailValidationToken : String
+    , fetchSessionToken : String
+    }
+
+
+type Error
+    = NoSecureContext
+    | DbError Db.Error
+
+
+create : Db.Connection -> User -> Task Error Session
+create db user =
+    Task.await getSecureContext <| \secureContext ->
+    Task.await (Crypto.randomUuidV4 secureContext) <| \uuid1 ->
+    Task.await (Crypto.randomUuidV4 secureContext) <| \uuid2 ->
+    Task.await Time.now <| \now ->
+        dbInsert db
+            { created = now
+            , userId = user.id
+            , emailValidationToken = uuid1
+            , fetchSessionToken = uuid2
+            }
+
+
+getSecureContext : Task Error Crypto.SecureContext
+getSecureContext =
+    Crypto.getSecureContext
+        |> Task.mapError (\_ -> NoSecureContext)
+
+
+dbInsert : Db.Connection -> Session -> Task Error Session
+dbInsert db session =
+    Task.map (\_ -> session) <|
+    Task.mapError DbError <|
+        Db.execute db 
+            { statement = 
+                """
+                insert into session (created, user_id, email_validation_token, fetch_session_token)
+                values (:created, :user_id, :email_validation_token, :fetch_session_token)
+                """
+            , parameters =
+                [ Db.Encode.posix "created" session.created
+                , Db.Encode.int "user_id" session.userId
+                , Db.Encode.string "email_validation_token" session.emailValidationToken
+                , Db.Encode.string "fetch_session_token" session.fetchSessionToken
+                ]
+            }

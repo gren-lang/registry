@@ -1,16 +1,18 @@
 module Test.E2E.Route.Session exposing (tests)
 
 
+import Bytes
 import Db
 import Db.Encode
 import Db.Decode
 import Email
 import Expect
 import HttpClient
+import Json.Decode
 import Json.Encode
 import Task exposing (Task)
 import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test)
-import Test.E2E.Helper exposing (initDb, get, post, postWithJson, expectBadStatus)
+import Test.E2E.Helper exposing (initDb, get, post, postWithJson, expectBadStatus, expectJson)
 import User exposing (User)
 
 
@@ -62,10 +64,29 @@ tests httpPerm =
                 [ test "Responds successfully" <| \_ ->
                     Expect.equal 200 response.statusCode
 
-                , await "Getting created user from db" (getUser goodEmail) <| \user ->
-                    test "returns the created user" <| \_ ->
-                        Email.toString user.email
-                            |> Expect.equal goodEmail
+                , await "Getting session info from db" 
+                    (Db.getOne db
+                        { query = 
+                            """
+                            select fetch_session_token from session
+                            inner join user on (user.id = session.user_id)
+                            where user.email = :email
+                            order by session.created desc
+                            limit 1
+                            """
+                        , parameters =
+                            [ Db.Encode.string "email" goodEmail ]
+                        , decoder =
+                            Db.Decode.string "fetch_session_token"
+                        }
+                    )
+                    (\expectedToken ->
+                        test "responds with fetch session token" <| \_ ->
+                            response.data
+                                |> expectJson
+                                    (Json.Decode.field "fetchSessionToken" Json.Decode.string)
+                                    expectedToken
+                    )
                 ]
         ]
     ]
