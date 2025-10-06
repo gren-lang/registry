@@ -1,4 +1,7 @@
-module Route.Error exposing (notFound)
+module Route.Error exposing 
+    ( notFound
+    , noSecureContext
+    )
 
 
 import HttpServer.Response as Response exposing (Response)
@@ -10,4 +13,12 @@ notFound response =
     response
         |> Response.setStatus 404
         |> Response.setBody "not found"
+        |> Task.succeed
+
+
+noSecureContext : Response -> Task Never Response
+noSecureContext response =
+    response
+        |> Response.setStatus 500
+        |> Response.setBody "Missing secure context."
         |> Task.succeed

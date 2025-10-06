@@ -4,8 +4,10 @@ module Route.Session exposing
 
 
 import Bytes exposing (Bytes)
+import Crypto
 import Db
 import Email exposing (Email)
+import HttpServer exposing (Request)
 import HttpServer.Response as Response exposing (Response)
 import Json.Decode
 import Json.Encode
@@ -16,14 +18,19 @@ import User exposing (User)
 
 type Error
     = InvalidEmail
-    | NoSecureContext
     | DbError Db.Error
 
 
-create : Db.Connection -> Response -> Bytes -> Task Never Response
-create db response requestBody =
-    findOrCreateUser db requestBody
-        |> Task.andThen (createSession db)
+create : 
+    { db : Db.Connection
+    , secureContext : Crypto.SecureContext
+    , request : Request
+    , response : Response
+    }
+    -> Task Never Response
+create { db, secureContext, request, response } =
+    findOrCreateUser db request.body
+        |> Task.andThen (createSession db secureContext )
         |> Task.map (createSuccess response)
         |> Task.onError (createFailed response)
 
@@ -39,15 +46,10 @@ findOrCreateUser db requestBody =
                 |> Task.mapError DbError
 
 
-createSession : Db.Connection -> User -> Task Error Session
-createSession db user =
-    Session.create db user
-        |> Task.mapError 
-            (\error ->
-                when error is
-                    Session.DbError dbError -> DbError dbError
-                    Session.NoSecureContext -> NoSecureContext
-            )
+createSession : Db.Connection -> Crypto.SecureContext -> User -> Task Error Session
+createSession db secureContext user =
+    Session.create { db = db, secureContext = secureContext, user = user }
+        |> Task.mapError DbError
 
 
 createSuccess : Response -> Session -> Response
@@ -75,12 +77,6 @@ createFailed response error =
                 |> Task.succeed
 
         DbError e ->
-            response
-                |> Response.setStatus 500
-                -- TODO: helpful error message in json body
-                |> Task.succeed
-
-        NoSecureContext ->
             response
                 |> Response.setStatus 500
                 -- TODO: helpful error message in json body
