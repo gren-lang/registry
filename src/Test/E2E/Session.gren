@@ -1,6 +1,7 @@
 module Test.E2E.Session exposing (tests)
 
 
+import Crypto
 import Db
 import Db.Encode
 import Db.Decode
@@ -12,8 +13,8 @@ import Test.Runner.Effectful exposing (Test, await, concat, describe, test)
 import User exposing (User)
 
 
-tests : Db.Connection -> Array Test
-tests db =
+tests : Db.Connection -> Crypto.SecureContext -> Array Test
+tests db secureContext =
     let
         getUser : Task Db.Error User
         getUser =
@@ -30,7 +31,7 @@ tests db =
     [ describe "Session.create"
         [ await "Create test user" getUser <| \user ->
           await "Get initial session count" (countUserSessions user) <| \countBeforeCreate ->
-          await "Create session" (Session.create db user) <| \session ->
+          await "Create session" (Session.create { db = db, user = user, secureContext = secureContext }) <| \session ->
           await "Get new session count" (countUserSessions user) <| \countAfterCreate ->
             concat
                 [ test "Session is created" <| \_ ->

@@ -1,6 +1,5 @@
 module Session exposing
     ( Session
-    , Error(..)
     , create
     )
 
@@ -22,14 +21,13 @@ type alias Session =
     }
 
 
-type Error
-    = NoSecureContext
-    | DbError Db.Error
-
-
-create : Db.Connection -> User -> Task Error Session
-create db user =
-    Task.await getSecureContext <| \secureContext ->
+create : 
+    { db : Db.Connection
+    , secureContext : Crypto.SecureContext
+    , user : User
+    } 
+    -> Task Db.Error Session
+create { db, user, secureContext } =
     Task.await (Crypto.randomUuidV4 secureContext) <| \uuid1 ->
     Task.await (Crypto.randomUuidV4 secureContext) <| \uuid2 ->
     Task.await Time.now <| \now ->
@@ -41,16 +39,9 @@ create db user =
             }
 
 
-getSecureContext : Task Error Crypto.SecureContext
-getSecureContext =
-    Crypto.getSecureContext
-        |> Task.mapError (\_ -> NoSecureContext)
-
-
-dbInsert : Db.Connection -> Session -> Task Error Session
+dbInsert : Db.Connection -> Session -> Task Db.Error Session
 dbInsert db session =
     Task.map (\_ -> session) <|
-    Task.mapError DbError <|
         Db.execute db 
             { statement = 
                 """

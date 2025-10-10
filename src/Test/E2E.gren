@@ -1,8 +1,9 @@
 module Test.E2E exposing (tests)
 
+import Crypto
 import Expect
 import HttpClient
-import Test.Runner.Effectful exposing (Test, awaitError, concat, describe, test)
+import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test)
 import Test.E2E.Helper exposing (get, expectBadStatus, initDb)
 import Test.E2E.Route.Session
 import Test.E2E.Session
@@ -15,13 +16,16 @@ tests httpPerm =
         db =
             initDb httpPerm
     in
-    [ describe "Session route tests" (Test.E2E.Route.Session.tests httpPerm)
-    , describe "Session module tests" (Test.E2E.Session.tests db)
-    , describe "User module tests" (Test.E2E.User.tests db)
-    , describe "Home route tests"
-        -- There is no Home route yet
-        [ awaitError "GET /" (get httpPerm "/") <| \response ->
-            test "404s" <| \_ ->
-                expectBadStatus 404 response
-        ]
+    [ await "Get secure context" Crypto.getSecureContext <| \secureContext ->
+        concat
+            [ describe "Session route tests" (Test.E2E.Route.Session.tests httpPerm)
+            , describe "Session module tests" (Test.E2E.Session.tests db secureContext)
+            , describe "User module tests" (Test.E2E.User.tests db)
+            , describe "Home route tests"
+                -- There is no Home route yet
+                [ awaitError "GET /" (get httpPerm "/") <| \response ->
+                    test "404s" <| \_ ->
+                        expectBadStatus 404 response
+                ]
+            ]
     ]
