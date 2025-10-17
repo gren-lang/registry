@@ -1,11 +1,15 @@
 module Test.E2E exposing (tests)
 
 import Crypto
+import Dict
 import Expect
 import HttpClient
+import Node
+import Task
 import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test)
 import Test.E2E.Helper exposing (get, expectBadStatus, initDb)
 import Test.E2E.Route.Session
+import Test.E2E.Postmark
 import Test.E2E.Session
 import Test.E2E.User
 
@@ -15,12 +19,29 @@ tests httpPerm =
     let
         db =
             initDb httpPerm
+
+        getPostmarkConfig =
+            Node.getEnvironmentVariables
+                |> Task.map (Dict.get "POSTMARK_API_TOKEN")
+                |> Task.andThen
+                    (\maybeToken ->
+                        when maybeToken is
+                            Nothing ->
+                                Task.fail "missing postmark api token"
+                            Just token ->
+                                Task.succeed
+                                    { httpPermission = httpPerm
+                                    , apiToken = token
+                                    }
+                    )
     in
     [ await "Get secure context" Crypto.getSecureContext <| \secureContext ->
+      await "Get postmark config" getPostmarkConfig <| \postmark ->
         concat
             [ describe "Session route tests" (Test.E2E.Route.Session.tests httpPerm)
             , describe "Session module tests" (Test.E2E.Session.tests db secureContext)
             , describe "User module tests" (Test.E2E.User.tests db)
+            , describe "Postmark module tests" (Test.E2E.Postmark.tests postmark)
             , describe "Home route tests"
                 -- There is no Home route yet
                 [ awaitError "GET /" (get httpPerm "/") <| \response ->

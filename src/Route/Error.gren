@@ -1,7 +1,7 @@
 module Route.Error exposing 
     ( notFound
-    , noSecureContext
     , invalidRequestData
+    , serverError
     )
 
 
@@ -17,17 +17,18 @@ notFound response =
         |> Task.succeed
 
 
-noSecureContext : Response -> Task Never Response
-noSecureContext response =
-    response
-        |> Response.setStatus 500
-        |> Response.setBody "Missing secure context."
-        |> Task.succeed
-
-
 invalidRequestData : Response -> String -> Task Never Response
 invalidRequestData response message =
     response
         |> Response.setStatus 400
         |> Response.setBody message
         |> Task.succeed
+
+
+serverError : Response -> String -> Task Never Response
+serverError response message =
+    response
+        |> Response.setStatus 500
+        |> Response.setBody message
+        |> Task.succeed
+

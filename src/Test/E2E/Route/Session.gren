@@ -38,7 +38,7 @@ tests httpPerm =
     , describe "Create session" <|
         let
             goodEmail =
-                "abc@example.com"
+                Email.example |> Email.toString
 
             withNoEmail =
                 post httpPerm "/session"

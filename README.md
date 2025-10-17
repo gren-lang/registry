@@ -36,7 +36,10 @@ Once task ports land (25S?), switch to sqlite via ports with litestream for back
 
 ## Local Development
 
-This project uses [devbox](https://www.jetify.com/devbox).
+This project uses [devbox](https://www.jetify.com/devbox) and [direnv](https://direnv.net/).
+Install both for the smoothest experience.
+
+Copy `.envrc.sample` to `.envrc` and set environment variables appropriately.
 
 You can run the server with `devbox services up`
 

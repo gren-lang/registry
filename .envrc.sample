@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Automatically sets up devbox environment when you cd into this directory.
+# see https://www.jetify.com/docs/devbox/ide_configuration/direnv/ for details.
+eval "$(devbox generate direnv --print-envrc)"
+
+# Set environment variables for local development.
+# Other environments should set these using that environment's configuration.
+export POSTMARK_API_TOKEN=abc123

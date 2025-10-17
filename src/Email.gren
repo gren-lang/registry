@@ -38,4 +38,4 @@ toString (Email emailString) =
 -}
 example : Email
 example =
-    Email "a@example.com"
+    Email "test@blackhole.postmarkapp.com"
