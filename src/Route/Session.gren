@@ -1,5 +1,6 @@
 module Route.Session exposing
-    ( create
+    ( Request(..)
+    , create
     )
 
 
@@ -17,33 +18,35 @@ import User exposing (User)
 
 
 type Error
-    = InvalidEmail
-    | DbError Db.Error
+    = DbError Db.Error
+
+
+type Request data
+    = Request data
 
 
 create : 
     { db : Db.Connection
     , secureContext : Crypto.SecureContext
-    , request : Request
+    , request : Request { email : Email }
     , response : Response
     }
     -> Task Never Response
 create { db, secureContext, request, response } =
-    findOrCreateUser db request.body
+    let
+        (Request { email }) =
+            request
+    in
+    findOrCreateUser db email
         |> Task.andThen (createSession db secureContext )
         |> Task.map (createSuccess response)
         |> Task.onError (createFailed response)
 
 
-findOrCreateUser : Db.Connection -> Bytes -> Task Error User
-findOrCreateUser db requestBody =
-    when getEmail requestBody is
-        Nothing ->
-            Task.fail InvalidEmail
-
-        Just email ->
-            User.findOrCreate db email
-                |> Task.mapError DbError
+findOrCreateUser : Db.Connection -> Email -> Task Error User
+findOrCreateUser db email =
+    User.findOrCreate db email
+        |> Task.mapError DbError
 
 
 createSession : Db.Connection -> Crypto.SecureContext -> User -> Task Error Session
@@ -70,34 +73,8 @@ createSuccess response session =
 createFailed : Response -> Error -> Task x Response
 createFailed response error =
     when error is
-        InvalidEmail ->
-            response
-                |> Response.setStatus 400
-                -- TODO: helpful error message in json body
-                |> Task.succeed
-
         DbError e ->
             response
                 |> Response.setStatus 500
                 -- TODO: helpful error message in json body
                 |> Task.succeed
-
-
-getEmail : Bytes -> Maybe Email
-getEmail bytes =
-    bytes
-        |> Bytes.toString
-        |> Maybe.andThen decodeEmail
-        |> Maybe.andThen Email.fromString
-
-
-decodeEmail : String -> Maybe String
-decodeEmail json =
-    json
-        |> Json.Decode.decodeString emailDecoder
-        |> Result.toMaybe
-
-
-emailDecoder : Json.Decode.Decoder String
-emailDecoder =
-    Json.Decode.field "email" Json.Decode.string

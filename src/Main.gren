@@ -3,11 +3,13 @@ module Main exposing (main)
 import Bytes exposing (Bytes)
 import Crypto
 import Db
+import Email exposing (Email)
 import Db.Encode
 import HttpClient
 import HttpServer exposing (Request, ServerError(..), Method(..))
 import HttpServer.Response as Response exposing (Response)
 import Init
+import Json.Decode
 import Node exposing (Environment, Program)
 import Registry.Db
 import Route.Error
@@ -165,15 +167,41 @@ route model request response =
             Route.Error.noSecureContext response
 
         { method = POST, path = [ "session" ], secureContext = Just secureContext } ->
-            Route.Session.create 
-                { db = model.db
-                , secureContext = secureContext
-                , request = request
-                , response = response
-                }
+            when getEmail request.body is
+                Just email ->
+                    Route.Session.create 
+                        { db = model.db
+                        , secureContext = secureContext
+                        , request = Route.Session.Request { email = email }
+                        , response = response
+                        }
+
+                Nothing ->
+                    Route.Error.invalidRequestData response
+                        "Request json did not contain a valid `email` field."
 
         _ ->
             Route.Error.notFound response
+
+
+getEmail : Bytes -> Maybe Email
+getEmail bytes =
+    bytes
+        |> Bytes.toString
+        |> Maybe.andThen decodeEmail
+        |> Maybe.andThen Email.fromString
+
+
+decodeEmail : String -> Maybe String
+decodeEmail json =
+    json
+        |> Json.Decode.decodeString emailDecoder
+        |> Result.toMaybe
+
+
+emailDecoder : Json.Decode.Decoder String
+emailDecoder =
+    Json.Decode.field "email" Json.Decode.string
 
 
 print : Stream.Writable Bytes -> String -> Task Never {}
