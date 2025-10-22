@@ -172,7 +172,7 @@ route model request response =
                     Route.Session.create 
                         { db = model.db
                         , secureContext = secureContext
-                        , request = Route.Session.Request { email = email }
+                        , requestData = { email = email }
                         , response = response
                         }
 

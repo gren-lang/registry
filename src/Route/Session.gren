@@ -1,6 +1,5 @@
 module Route.Session exposing
-    ( Request(..)
-    , create
+    ( create
     )
 
 
@@ -21,23 +20,15 @@ type Error
     = DbError Db.Error
 
 
-type Request data
-    = Request data
-
-
 create : 
     { db : Db.Connection
     , secureContext : Crypto.SecureContext
-    , request : Request { email : Email }
+    , requestData : { email : Email }
     , response : Response
     }
     -> Task Never Response
-create { db, secureContext, request, response } =
-    let
-        (Request { email }) =
-            request
-    in
-    findOrCreateUser db email
+create { db, secureContext, requestData, response } =
+    findOrCreateUser db requestData.email
         |> Task.andThen (createSession db secureContext )
         |> Task.map (createSuccess response)
         |> Task.onError (createFailed response)
