@@ -99,14 +99,10 @@ createFailed response error =
 
 
         SendEmailFailed e ->
-            let
-                message =
-                    "Failed to send email: " ++
-                    HttpClient.errorToString e
-            in
+            -- TODO: log the actual error
             response
                 |> Response.setStatus 500
-                |> setErrorMessage message
+                |> setErrorMessage "Failed to send email"
                 |> Task.succeed
 
 
