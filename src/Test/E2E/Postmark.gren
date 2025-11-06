@@ -1,0 +1,24 @@
+module Test.E2E.Postmark exposing (tests)
+
+
+import Email
+import Expect
+import HttpClient
+import Postmark
+import Test.Runner.Effectful exposing (Test, await, awaitError, describe, test)
+
+
+tests : Postmark.Configuration -> Array Test
+tests postmark =
+    [ await "Postmark.send"
+        (Postmark.send postmark
+            { to = Email.example |> Email.toString
+            , subject = "postmark test"
+            , textBody = "postmark test body"
+            }
+        )
+        (\result ->
+            test "Succeeds" <| \_ ->
+                Expect.equal {} result
+        )
+    ]

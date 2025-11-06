@@ -37,7 +37,7 @@ tests db secureContext =
                 [ test "Session is created" <| \_ ->
                     Expect.equal (countBeforeCreate + 1) countAfterCreate
                 , test "Session is created for user" <| \_ ->
-                    Expect.equal user.id session.userId
+                    Expect.equal user session.user
                 ]
         ]
     ]

@@ -1,3 +1,4 @@
+.envrc
 .gren
 db/*.db*
 dist/app

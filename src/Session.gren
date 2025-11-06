@@ -15,7 +15,7 @@ import User exposing (User)
 
 type alias Session =
     { created : Time.Posix
-    , userId : Int
+    , user : User
     , emailValidationToken : String
     , fetchSessionToken : String
     }
@@ -33,7 +33,7 @@ create { db, user, secureContext } =
     Task.await Time.now <| \now ->
         dbInsert db
             { created = now
-            , userId = user.id
+            , user = user
             , emailValidationToken = uuid1
             , fetchSessionToken = uuid2
             }
@@ -50,7 +50,7 @@ dbInsert db session =
                 """
             , parameters =
                 [ Db.Encode.posix "created" session.created
-                , Db.Encode.int "user_id" session.userId
+                , Db.Encode.int "user_id" session.user.id
                 , Db.Encode.string "email_validation_token" session.emailValidationToken
                 , Db.Encode.string "fetch_session_token" session.fetchSessionToken
                 ]

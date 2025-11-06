@@ -1,0 +1,48 @@
+module Postmark exposing (Configuration, send)
+
+
+import HttpClient as Http
+import Json.Encode
+import Task exposing (Task)
+
+
+type alias Configuration =
+    { apiToken : String
+    , httpPermission : Http.Permission
+    }
+
+
+url : String
+url =
+    "https://api.postmarkapp.com/email"
+
+
+-- Might not want to always hardcode this. But for now we're only using this for
+-- email validation.
+from : String
+from =
+    "no-reply@gren-lang.org"
+
+
+send :
+    Configuration
+    -> { to : String, subject : String, textBody : String }
+    -> Task Http.Error {}
+send config { to, subject, textBody } =
+    let
+        body =
+            Json.Encode.object
+                [ { key = "From", value = Json.Encode.string from }
+                , { key = "To", value = Json.Encode.string to }
+                , { key = "Subject", value = Json.Encode.string subject }
+                , { key = "TextBody", value = Json.Encode.string textBody }
+                , { key = "MessageStream", value = Json.Encode.string "outbound" }
+                ]
+    in
+    Http.post url
+        |> Http.withHeader "Accept" "application/json"
+        |> Http.withHeader "Content-Type" "application/json"
+        |> Http.withHeader "X-Postmark-Server-Token" config.apiToken
+        |> Http.withJsonBody body
+        |> Http.send config.httpPermission
+        |> Task.map (\_ -> {})

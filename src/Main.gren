@@ -3,6 +3,7 @@ module Main exposing (main)
 import Bytes exposing (Bytes)
 import Crypto
 import Db
+import Dict
 import Email exposing (Email)
 import Db.Encode
 import HttpClient
@@ -11,6 +12,7 @@ import HttpServer.Response as Response exposing (Response)
 import Init
 import Json.Decode
 import Node exposing (Environment, Program)
+import Postmark
 import Registry.Db
 import Route.Error
 import Route.Session
@@ -28,8 +30,8 @@ main =
         }
 
 
-config : { host : String, port_ : Int }
-config =
+serverConfig : { host : String, port_ : Int }
+serverConfig =
     { host = "0.0.0.0"
     , port_ = 3000
     }
@@ -43,6 +45,7 @@ type alias Model =
     , stderr : Stream.Writable Bytes
     , server : Maybe HttpServer.Server
     , db : Db.Connection
+    , postmark : Maybe Postmark.Configuration
     , secureContext : Maybe Crypto.SecureContext
     }
 
@@ -51,9 +54,20 @@ init : Environment -> Init.Task { model : Model, command : Cmd Msg }
 init env =
     Init.await HttpServer.initialize <| \serverPermission ->
     Init.await HttpClient.initialize <| \httpPerm ->
+    Init.awaitTask Node.getEnvironmentVariables <| \envVars ->
         let
             db =
                 Helper.initDb httpPerm
+
+            postmark =
+                envVars
+                    |> Dict.get "POSTMARK_SERVER_TOKEN"
+                    |> Maybe.map
+                        (\token ->
+                            { httpPermission = httpPerm
+                            , apiToken = token
+                            }
+                        )
         in
         Node.startProgram
             { model =
@@ -62,12 +76,13 @@ init env =
                 , server = Nothing
                 , db = db
                 , secureContext = Nothing
+                , postmark = postmark
                 }
             , command =
                 Cmd.batch
                     [ Registry.Db.migrate db 
                         |> Task.attempt DbMigrationResult
-                    , HttpServer.createServer serverPermission config
+                    , HttpServer.createServer serverPermission serverConfig
                         |> Task.attempt CreateServerResult
                     , Crypto.getSecureContext
                         |> Task.attempt SecureContextResult
@@ -94,7 +109,7 @@ update msg model =
                 Ok server ->
                     { model = { model | server = Just server }
                     , command = 
-                        "Server started: http://" ++ config.host ++ ":" ++ String.fromInt config.port_
+                        "Server started: http://" ++ serverConfig.host ++ ":" ++ String.fromInt serverConfig.port_
                             |> print model.stdout
                             |> Task.execute
                     }
@@ -161,27 +176,39 @@ route model request response =
             request.url.path
                 |> String.split "/"
                 |> Array.keepIf (\s -> s /= "")
+
+        config =
+            { secureContext = model.secureContext
+            , postmark = model.postmark
+            }
     in
-    when { method = request.method, path = path, secureContext = model.secureContext } is
+    when config is
         { secureContext = Nothing } ->
-            Route.Error.noSecureContext response
+            Route.Error.serverError response "Missing secure context."
 
-        { method = POST, path = [ "session" ], secureContext = Just secureContext } ->
-            when getEmail request.body is
-                Just email ->
-                    Route.Session.create 
-                        { db = model.db
-                        , secureContext = secureContext
-                        , requestData = { email = email }
-                        , response = response
-                        }
+        { postmark = Nothing } ->
+            Route.Error.serverError response "Missing postmark config."
 
-                Nothing ->
-                    Route.Error.invalidRequestData response
-                        "Request json did not contain a valid `email` field."
+        { postmark = Just postmark, secureContext = Just secureContext } ->
+            when { method = request.method, path = path } is
 
-        _ ->
-            Route.Error.notFound response
+                { method = POST, path = [ "session" ] } ->
+                    when getEmail request.body is
+                        Just email ->
+                            Route.Session.create 
+                                { db = model.db
+                                , postmark = postmark
+                                , secureContext = secureContext
+                                , requestData = { email = email }
+                                , response = response
+                                }
+
+                        Nothing ->
+                            Route.Error.invalidRequestData response
+                                "Request json did not contain a valid `email` field."
+
+                _ ->
+                    Route.Error.notFound response
 
 
 getEmail : Bytes -> Maybe Email
