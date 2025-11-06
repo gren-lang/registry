@@ -4,6 +4,9 @@
 # see https://www.jetify.com/docs/devbox/ide_configuration/direnv/ for details.
 eval "$(devbox generate direnv --print-envrc)"
 
-# Set environment variables for local development.
+# Set environment variables for local development below.
 # Other environments should set these using that environment's configuration.
-export POSTMARK_SERVER_TOKEN=abc123
+
+# Use POSTMARK_API_TEST if you don't need to send real emails.
+# https://postmarkapp.com/support/article/1213-best-practices-for-testing-your-emails-through-postmark
+export POSTMARK_SERVER_TOKEN=POSTMARK_API_TEST
