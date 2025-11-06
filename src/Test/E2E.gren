@@ -20,23 +20,13 @@ tests httpPerm =
         db =
             initDb httpPerm
 
-        getPostmarkConfig =
-            Node.getEnvironmentVariables
-                |> Task.map (Dict.get "POSTMARK_SERVER_TOKEN")
-                |> Task.andThen
-                    (\maybeToken ->
-                        when maybeToken is
-                            Nothing ->
-                                Task.fail "missing postmark api token"
-                            Just token ->
-                                Task.succeed
-                                    { httpPermission = httpPerm
-                                    , apiToken = token
-                                    }
-                    )
+        postmark =
+            -- https://postmarkapp.com/support/article/1213-best-practices-for-testing-your-emails-through-postmark
+            { apiToken = "POSTMARK_API_TEST"
+            , httpPermission = httpPerm
+            }
     in
     [ await "Get secure context" Crypto.getSecureContext <| \secureContext ->
-      await "Get postmark config" getPostmarkConfig <| \postmark ->
         concat
             [ describe "Session route tests" (Test.E2E.Route.Session.tests httpPerm)
             , describe "Session module tests" (Test.E2E.Session.tests db secureContext)
