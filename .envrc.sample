@@ -6,4 +6,4 @@ eval "$(devbox generate direnv --print-envrc)"
 
 # Set environment variables for local development.
 # Other environments should set these using that environment's configuration.
-export POSTMARK_API_TOKEN=abc123
+export POSTMARK_SERVER_TOKEN=abc123

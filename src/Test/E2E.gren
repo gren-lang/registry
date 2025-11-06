@@ -22,7 +22,7 @@ tests httpPerm =
 
         getPostmarkConfig =
             Node.getEnvironmentVariables
-                |> Task.map (Dict.get "POSTMARK_API_TOKEN")
+                |> Task.map (Dict.get "POSTMARK_SERVER_TOKEN")
                 |> Task.andThen
                     (\maybeToken ->
                         when maybeToken is

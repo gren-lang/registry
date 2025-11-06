@@ -61,7 +61,7 @@ init env =
 
             postmark =
                 envVars
-                    |> Dict.get "POSTMARK_API_TOKEN"
+                    |> Dict.get "POSTMARK_SERVER_TOKEN"
                     |> Maybe.map
                         (\token ->
                             { httpPermission = httpPerm
