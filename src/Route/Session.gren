@@ -1,5 +1,7 @@
 module Route.Session exposing
     ( create
+    , validateEmail
+    , validateEmailPath
     )
 
 
@@ -13,14 +15,30 @@ import HttpServer.Response as Response exposing (Response)
 import Postmark
 import Json.Decode
 import Json.Encode
+import Route.Error
 import Session exposing (Session)
 import Task exposing (Task)
+import Url.Builder
 import User exposing (User)
 
 
 type Error
     = DbError Db.Error
     | SendEmailFailed HttpClient.Error
+
+
+-- PATHS
+
+
+validateEmailPath : { token : Maybe String } -> String
+validateEmailPath { token } =
+    let
+        query =
+            when token is
+                Just t -> [ Url.Builder.string "token" t ]
+                Nothing -> []
+    in
+    Url.Builder.absolute [ "session", "validate-email" ] query
 
 
 -- ENDPOINTS
@@ -40,6 +58,16 @@ create { db, secureContext, postmark, requestData, response } =
         |> Task.andThen (sendEmailValidationLink postmark)
         |> Task.map (createSuccess response)
         |> Task.onError (createFailed response)
+
+
+validateEmail :
+    { db : Db.Connection
+    , requestData : { token : String }
+    , response : Response
+    }
+    -> Task Never Response
+validateEmail { db, requestData, response } =
+    Route.Error.invalidRequestData response "Invalid token"
 
 
 -- ACTIONS

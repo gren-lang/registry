@@ -10,9 +10,10 @@ import Expect
 import HttpClient
 import Json.Decode
 import Json.Encode
+import Route.Session
 import Task exposing (Task)
 import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test)
-import Test.E2E.Helper exposing (initDb, get, post, postWithJson, expectBadStatus, expectJson)
+import Test.E2E.Helper as Helper exposing (initDb, get, post, postWithJson, expectBadStatus, expectJson)
 import User exposing (User)
 
 
@@ -34,6 +35,10 @@ tests httpPerm =
     [ awaitError "GET /session" (get httpPerm "/session") <| \response ->
         test "404s" <| \_ ->
             expectBadStatus 404 response
+
+
+    -- CREATE SESSION
+
 
     , describe "Create session" <|
         let
@@ -88,5 +93,20 @@ tests httpPerm =
                                     expectedToken
                     )
                 ]
+
+
+        -- VALIDATE EMAIL
+
+
+        , describe "Validate email" <|
+            [ awaitError "GET with bad token"
+                (Route.Session.validateEmailPath { token = Just "oops" }
+                    |> Helper.get httpPerm
+                )
+                (\response ->
+                    test "is auth error" <| \_ ->
+                        expectBadStatus 400 response
+                )
+            ]
         ]
     ]

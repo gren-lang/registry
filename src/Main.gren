@@ -19,6 +19,8 @@ import Route.Session
 import Stream
 import Task exposing (Task)
 import Test.E2E.Helper as Helper
+import Url.Parser
+import Url.Parser.Query as Query
 
 
 main : Program Model Msg
@@ -206,6 +208,24 @@ route model request response =
                         Nothing ->
                             Route.Error.invalidRequestData response
                                 "Request json did not contain a valid `email` field."
+
+                { method = GET, path = [ "session", "validate-email" ] } ->
+                    let
+                        queryParser =
+                            Query.string "token"
+                                |> Url.Parser.query
+                    in
+                    when Url.Parser.parse queryParser request.url is
+                        Just (Just token) ->
+                            Route.Session.validateEmail
+                                { db = model.db
+                                , requestData = { token = token }
+                                , response = response
+                                }
+
+                        _ ->
+                            Route.Error.invalidRequestData response
+                                "Request must contain a `token`"
 
                 _ ->
                     Route.Error.notFound response
