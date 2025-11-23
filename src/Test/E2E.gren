@@ -28,7 +28,7 @@ tests httpPerm =
     in
     [ await "Get secure context" Crypto.getSecureContext <| \secureContext ->
         concat
-            [ describe "Session route tests" (Test.E2E.Route.Session.tests httpPerm)
+            [ describe "Session route tests" (Test.E2E.Route.Session.tests httpPerm secureContext)
             , describe "Session module tests" (Test.E2E.Session.tests db secureContext)
             , describe "User module tests" (Test.E2E.User.tests db)
             , describe "Postmark module tests" (Test.E2E.Postmark.tests postmark)

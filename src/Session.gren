@@ -1,13 +1,19 @@
 module Session exposing
     ( Session
     , create
+    , getWithEmailConfirmationToken
+    , setConfirmationCode
+    , emailConfirmationExpired
     )
 
 
+import Bytes.Decode
 import Crypto
 import Db
 import Db.Encode
 import Db.Decode
+import Email
+import Math
 import Task exposing (Task)
 import Time
 import User exposing (User)
@@ -16,16 +22,17 @@ import User exposing (User)
 type alias Session =
     { created : Time.Posix
     , user : User
-    , emailValidationToken : String
+    , emailConfirmationToken : String
     , fetchSessionToken : String
+    , confirmationCode : Maybe String
     }
 
 
-create : 
+create :
     { db : Db.Connection
     , secureContext : Crypto.SecureContext
     , user : User
-    } 
+    }
     -> Task Db.Error Session
 create { db, user, secureContext } =
     Task.await (Crypto.randomUuidV4 secureContext) <| \uuid1 ->
@@ -34,9 +41,104 @@ create { db, user, secureContext } =
         dbInsert db
             { created = now
             , user = user
-            , emailValidationToken = uuid1
+            , emailConfirmationToken = uuid1
             , fetchSessionToken = uuid2
+            , confirmationCode = Nothing
             }
+
+
+-- GETTERS
+
+
+getWithEmailConfirmationToken : Db.Connection -> String -> Task Db.Error Session
+getWithEmailConfirmationToken db token =
+    Db.getOne db
+        { query = queryPrelude ++ " where s.email_confirmation_token = :token"
+        , parameters = [ Db.Encode.string "token" token ]
+        , decoder = dbDecoder
+        }
+
+
+-- CONFIRMATION CODE
+
+
+confirmationCodeCharset : String
+confirmationCodeCharset =
+    "023456789ABCDEFGHJKMNPQRSTUVWXYZ"
+
+
+byteToConfirmationChar : Int -> String
+byteToConfirmationChar byte =
+    let
+        charsetLength =
+            32
+
+        index =
+            Math.modBy charsetLength byte
+
+        char =
+            String.slice index (index + 1) confirmationCodeCharset
+    in
+    char
+
+
+generateConfirmationCode : Task {} String
+generateConfirmationCode =
+    let
+        decoder =
+            Bytes.Decode.loop { index = 0, chars = [] } <| \state ->
+                if state.index >= 8 then
+                    Bytes.Decode.succeed (Bytes.Decode.Done state.chars)
+                else
+                    (Bytes.Decode.unsignedInt8
+                        |> Bytes.Decode.map (\byte ->
+                            Bytes.Decode.Loop
+                                { index = state.index + 1
+                                , chars = Array.pushLast (byteToConfirmationChar byte) state.chars
+                                }
+                        ))
+    in
+    (Crypto.getRandomUInt8Values 8
+        |> Task.andThen (\bytes ->
+            when Bytes.Decode.decode decoder bytes is
+                Just chars ->
+                    Task.succeed (String.join "" chars)
+
+                Nothing ->
+                    Task.fail {}
+        ))
+
+
+emailConfirmationExpired : Time.Posix -> Session -> Bool
+emailConfirmationExpired now session =
+    let
+        emailConfirmationWindow =
+            30 * 60 * 1000 -- 30 mins
+
+        confirmationExpiresAt =
+            Time.posixToMillis session.created + emailConfirmationWindow
+    in
+    Time.posixToMillis now >= confirmationExpiresAt
+
+
+setConfirmationCode : Db.Connection -> Session -> Task Db.Error Session
+setConfirmationCode db session =
+    generateConfirmationCode
+        -- maybe need a custom error type?
+        |> Task.mapError (\_ -> Db.Error "Failed to generate confirmation code")
+        |> Task.andThen (\code ->
+            Db.execute db
+                { statement = "UPDATE session SET confirmation_code = :code WHERE email_confirmation_token = :token"
+                , parameters =
+                    [ Db.Encode.string "code" code
+                    , Db.Encode.string "token" session.emailConfirmationToken
+                    ]
+                }
+                |> Task.map (\_ -> { session | confirmationCode = Just code })
+        )
+
+
+-- DB HELPERS
 
 
 dbInsert : Db.Connection -> Session -> Task Db.Error Session
@@ -45,13 +147,59 @@ dbInsert db session =
         Db.execute db 
             { statement = 
                 """
-                insert into session (created, user_id, email_validation_token, fetch_session_token)
-                values (:created, :user_id, :email_validation_token, :fetch_session_token)
+                insert into session (created, user_id, email_confirmation_token, fetch_session_token)
+                values (:created, :user_id, :email_confirmation_token, :fetch_session_token)
                 """
             , parameters =
                 [ Db.Encode.posix "created" session.created
                 , Db.Encode.int "user_id" session.user.id
-                , Db.Encode.string "email_validation_token" session.emailValidationToken
+                , Db.Encode.string "email_confirmation_token" session.emailConfirmationToken
                 , Db.Encode.string "fetch_session_token" session.fetchSessionToken
                 ]
             }
+
+
+queryPrelude : String
+queryPrelude =
+    """
+    select
+        s.created as session_created,
+        s.email_confirmation_token,
+        s.fetch_session_token,
+        s.confirmation_code,
+        u.id as user_id,
+        u.created as user_created,
+        u.email
+    from session s
+    inner join user u on (u.id = s.user_id)
+    """
+
+dbDecoder : Db.Decode.Decoder Session
+dbDecoder =
+    Db.Decode.string "email"
+        |> Db.Decode.andThen
+            (\emailString ->
+                when (Email.fromString emailString) is
+                    Nothing ->
+                        Db.Decode.fail ("Invalid user email in db: " ++ emailString)
+                    Just userEmail ->
+                        Db.Decode.get6
+                            ( Db.Decode.posix "session_created" )
+                            ( Db.Decode.string "email_confirmation_token" )
+                            ( Db.Decode.string "fetch_session_token" )
+                            ( Db.Decode.maybe Db.Decode.string "confirmation_code" )
+                            ( Db.Decode.int "user_id" )
+                            ( Db.Decode.posix "user_created" )
+                            (\created emailConfirmationToken fetchSessionToken confirmationCode userId userCreated ->
+                                { created = created
+                                , emailConfirmationToken = emailConfirmationToken
+                                , fetchSessionToken = fetchSessionToken
+                                , confirmationCode = confirmationCode
+                                , user =
+                                    { id = userId
+                                    , created = userCreated
+                                    , email = userEmail
+                                    }
+                                }
+                            )
+            )

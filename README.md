@@ -40,6 +40,7 @@ This project uses [devbox](https://www.jetify.com/devbox) and [direnv](https://d
 Install both for the smoothest experience.
 
 Copy `.envrc.sample` to `.envrc` and set environment variables appropriately.
+Then run `direnv allow` so it will be evaluated when you enter this directory.
 
 You can run the server with `devbox services up`
 
@@ -74,20 +75,20 @@ Auth flow:
 1. CLI posts email address to the server (IN PROGRESS)
     1. [X] server finds or creates row in `user` table
     2. [X] server creates new row in `session` table with:
-        - `email_validation_token` for unique url for user to validate their email address and get a `validation_code`
-        - `fetch_session_token` for unique url for cli to fetch session (along with `validation_code`)
-    4. [ ] server emails validation link with `email_validation_token` (postmark)
+        - `email_confirmation_token` for user to confirm their email address and get a `confirmation_code`
+        - `fetch_session_token` for fetching the session (once they have a `confirmation_code`)
+    4. [ ] server emails confirmation link with `email_confirmation_token` (postmark)
     5. [ ] server returns fetch session link with `fetch_session_token`
-2. User follows email validation link to get a validation code.
-3. User enters validation code on the CLI, where it was prompting/waiting for it.
-4. CLI posts to the fetch link with the validation code.
+2. User follows email confirmation link to get a confirmation code.
+3. User enters confirmation code on the CLI, where it was prompting/waiting for it.
+4. CLI posts to the fetch link with the confirmation code.
 5. Server creates and returns a session token.
 6. CLI saves token on disk to use for authenticated requests.
 
 Benefits:
 
 - Not saving or requiring passwords.
-- CLI auth tightly coupled to email validation.
-    - Can't get session token without fetch token/link from the cli initiation and the validation code.
-    - Can't get the validation code without validation token/link from the email.
-- CLI auth loosely coupled to where you check your email (clicking validation link in email gives you a code that can be manually entered on the cli)
+- CLI auth tightly coupled to email confirmation.
+    - Can't get session token without fetch token/link from the cli initiation and the confirmation code.
+    - Can't get the confirmation code without confirmation token/link from the email.
+- CLI auth loosely coupled to where you check your email (clicking confirmation link in email gives you a code that can be manually entered on the cli)

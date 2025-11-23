@@ -7,19 +7,19 @@ import Db.Encode
 import Db.Decode
 import Email
 import Expect
+import Fuzz
 import Session
+import Set
 import Task exposing (Task)
-import Test.Runner.Effectful exposing (Test, await, concat, describe, test)
+import Test.E2E.Helper exposing (expectNoResultError)
+import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, fuzz, fuzz2, test)
+import Time
 import User exposing (User)
 
 
 tests : Db.Connection -> Crypto.SecureContext -> Array Test
 tests db secureContext =
     let
-        getUser : Task Db.Error User
-        getUser =
-            User.findOrCreate db Email.example
-
         countUserSessions : User -> Task Db.Error Int
         countUserSessions user =
             Db.getOne db
@@ -28,16 +28,99 @@ tests db secureContext =
                 , decoder = Db.Decode.int "count"
                 }
     in
-    [ describe "Session.create"
-        [ await "Create test user" getUser <| \user ->
-          await "Get initial session count" (countUserSessions user) <| \countBeforeCreate ->
-          await "Create session" (Session.create { db = db, user = user, secureContext = secureContext }) <| \session ->
-          await "Get new session count" (countUserSessions user) <| \countAfterCreate ->
-            concat
-                [ test "Session is created" <| \_ ->
-                    Expect.equal (countBeforeCreate + 1) countAfterCreate
-                , test "Session is created for user" <| \_ ->
-                    Expect.equal user session.user
+    [ await "Create test user" (User.findOrCreate db Email.example) <| \user ->
+      await "Create test session" (Session.create { db = db, user = user, secureContext = secureContext }) <| \session ->
+        concat
+            [ describe "Session.create"
+                [ await "Get initial session count" (countUserSessions user) <| \countBeforeCreate ->
+                  await "Create another session" (Session.create { db = db, user = user, secureContext = secureContext }) <| \newSession ->
+                  await "Get new session count" (countUserSessions user) <| \countAfterCreate ->
+                    concat
+                        [ test "Session is created" <| \_ ->
+                            Expect.equal (countBeforeCreate + 1) countAfterCreate
+                        , test "Session is created for user" <| \_ ->
+                            Expect.equal user newSession.user
+                        , test "Session has emailConfirmationToken" <| \_ ->
+                            Expect.equal True (String.count newSession.emailConfirmationToken > 1)
+                        , test "Session has fetchSessionToken" <| \_ ->
+                            Expect.equal True (String.count newSession.fetchSessionToken > 1)
+                        , test "Session does not have confirmationCode" <| \_ ->
+                            Expect.equal Nothing session.confirmationCode
+                        ]
                 ]
-        ]
-    ]
+            
+            , describe "Session.getWithEmailConfirmationToken"
+                [ awaitError "with incorrect token" (Session.getWithEmailConfirmationToken db "oops") <| \error ->
+                    test "results in db error" <| \_ ->
+                        expectNoResultError error
+                , await "with correct token" (Session.getWithEmailConfirmationToken db session.emailConfirmationToken) <| \result ->
+                    test "returns session" <| \_ ->
+                        Expect.equal session result
+                ]
+
+            , describe "Session.setConfirmationCode" <|
+                let
+                    sessionWithCode =
+                        Session.create { db = db, user = user, secureContext = secureContext }
+                            |> Task.andThen (Session.setConfirmationCode db)
+
+                    createSessionsWithCodes n =
+                        Array.initialize n 0 (\_ -> sessionWithCode)
+                            |> Task.sequence
+                in
+                [ await "create session" (Session.create { db = db, user = user, secureContext = secureContext }) <| \newSession ->
+                  await "set confirmation code" (Session.setConfirmationCode db newSession) <| \updatedSession ->
+                    test "sets valid confirmation code" <| \_ ->
+                        when updatedSession.confirmationCode is
+                            Just code ->
+                                Expect.equal 8 (String.count code)
+
+                            Nothing ->
+                                Expect.fail "Expected confirmation code to exist"
+
+                , await "create 100 sessions with codes" (createSessionsWithCodes 100) <| \sessions ->
+                    let
+                        codes =
+                            sessions
+                                |> Array.map .confirmationCode
+                                |> Array.map (Maybe.withDefault "")
+
+                        ambiguousChars =
+                            [ "O", "1", "I", "L" ]
+                    in
+                    concat
+                        [ test "all codes are unique" <| \_ ->
+                            codes
+                                |> Set.fromArray
+                                |> Set.toArray
+                                |> Array.length
+                                |> Expect.equal 100
+
+                        , fuzz2 (Fuzz.oneOfValues codes) (Fuzz.oneOfValues ambiguousChars) "does not contain ambiguous characters" <| \code ambiguousChar ->
+                                if String.contains ambiguousChar code then
+                                    Expect.fail ("Code contains ambiguous character: " ++ ambiguousChar)
+                                else
+                                    Expect.pass
+                        ]
+                ]
+
+            , describe "Session.emailConfirmationExpired"
+                [ await "get current time" Time.now <| \now ->
+                  await "create session" (Session.create { db = db, user = user, secureContext = secureContext }) <| \freshSession ->
+                    concat
+                        [ test "fresh session email confirmation not expired" <| \_ ->
+                            Expect.equal False (Session.emailConfirmationExpired now freshSession)
+
+                        , test "old session email confirmation is expired" <| \_ ->
+                            let
+                                future =
+                                    now
+                                        |> Time.posixToMillis
+                                        |> (\m -> m + (31 * 60 * 1000))
+                                        |> Time.millisToPosix
+                            in
+                            Expect.equal True (Session.emailConfirmationExpired future freshSession)
+                        ]
+                ]
+            ]
+    ]   

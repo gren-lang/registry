@@ -1,6 +1,10 @@
 module Test.E2E.Helper exposing
-    ( expectBadStatus
+    ( createSession
+    , decodeJson
+    , expectBadStatus
     , expectJson
+    , expectNoResultError
+    , expectStringContains
     , initDb
     , get
     , post
@@ -9,19 +13,20 @@ module Test.E2E.Helper exposing
 
 
 import Bytes exposing (Bytes)
+import Crypto
 import Db
 import Email
 import Expect exposing (Expectation)
 import HttpClient exposing (Response)
 import Json.Decode
 import Json.Encode
+import Result
+import Session exposing (Session)
 import Task exposing (Task)
 import User
 
 
-url : String -> String
-url path =
-    "http://localhost:3000" ++ path
+-- DB
 
 
 initDb : HttpClient.Permission -> Db.Connection
@@ -30,11 +35,30 @@ initDb httpPerm =
     Db.init httpPerm "http://localhost:12321/local"
 
 
-get : HttpClient.Permission -> String -> Task HttpClient.Error (HttpClient.Response {})
+expectNoResultError : Db.Error -> Expectation
+expectNoResultError error =
+    when error is
+        Db.NoResultError ->
+            Expect.pass
+
+        e ->
+            Expect.fail ("Expected NoResultError, got " ++ (Db.errorToString e))
+
+
+-- HTTP
+
+
+url : String -> String
+url path =
+    "http://localhost:3000" ++ path
+
+
+
+get : HttpClient.Permission -> String -> Task HttpClient.Error (HttpClient.Response String)
 get httpPerm path =
     url path
         |> HttpClient.get
-        |> HttpClient.expectAnything
+        |> HttpClient.expectString
         |> HttpClient.send httpPerm
 
 
@@ -66,6 +90,12 @@ expectBadStatus status error =
                 (Debug.toString error)
 
 
+decodeJson : Json.Decode.Decoder a -> Bytes -> Maybe a
+decodeJson decoder bytes =
+    Bytes.toString bytes
+        |> Maybe.andThen (Json.Decode.decodeString decoder >> Result.toMaybe)
+
+
 expectJson : Json.Decode.Decoder a -> a -> Bytes -> Expectation
 expectJson decoder expected bytes =
     when Bytes.toString bytes is
@@ -79,3 +109,35 @@ expectJson decoder expected bytes =
 
                 Err error ->
                     Expect.fail (Json.Decode.errorToString error)
+
+
+-- SESSIONS
+
+
+{-| Create a session for a user with the example email.
+-}
+createSession : 
+    { db : Db.Connection, secureContext : Crypto.SecureContext }
+    -> Task Db.Error Session
+createSession { db, secureContext } =
+    User.findOrCreate db Email.example
+        |> Task.andThen
+            (\user ->
+                Session.create 
+                    { db = db
+                    , secureContext = secureContext
+                    , user = user 
+                    }
+            )
+
+
+-- STRINGS
+
+expectStringContains : String -> String -> Expectation
+expectStringContains expected actual =
+    if String.contains expected actual then
+        Expect.pass
+    else
+        "Expected \"" ++ actual ++ "\" to contain \"" ++ expected ++ "\""
+            |> Expect.fail
+

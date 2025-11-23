@@ -2,6 +2,7 @@ module Test.E2E.Route.Session exposing (tests)
 
 
 import Bytes
+import Crypto
 import Db
 import Db.Encode
 import Db.Decode
@@ -10,14 +11,18 @@ import Expect
 import HttpClient
 import Json.Decode
 import Json.Encode
+import Route.Session
+import Session exposing (Session)
+import String
 import Task exposing (Task)
 import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test)
-import Test.E2E.Helper exposing (initDb, get, post, postWithJson, expectBadStatus, expectJson)
+import Test.E2E.Helper as Helper exposing (initDb, get, post, postWithJson, expectBadStatus, expectJson, expectStringContains)
+import Time
 import User exposing (User)
 
 
-tests : HttpClient.Permission -> Array Test
-tests httpPerm =
+tests : HttpClient.Permission -> Crypto.SecureContext -> Array Test
+tests httpPerm secureContext =
     let
         db : Db.Connection
         db =
@@ -26,6 +31,10 @@ tests httpPerm =
     [ awaitError "GET /session" (get httpPerm "/session") <| \response ->
         test "404s" <| \_ ->
             expectBadStatus 404 response
+
+
+    -- CREATE SESSION
+
 
     , describe "Create session" <|
         let
@@ -80,5 +89,88 @@ tests httpPerm =
                                     expectedToken
                     )
                 ]
+
+
+        -- CONFIRM EMAIL
+
+
+        , describe "Confirm email" <|
+            let
+                createTestSession =
+                    Helper.createSession
+                        { db = db
+                        , secureContext = secureContext
+                        }
+
+                httpGet token =
+                    Route.Session.confirmEmailPath { token = token }
+                        |> (\path ->
+                            ("http://localhost:3000" ++ path)
+                                |> HttpClient.get
+                                |> HttpClient.expectBytes
+                                |> HttpClient.send httpPerm
+                        )
+            in
+            [ awaitError "GET with missing token" (httpGet Nothing) <| \responseError ->
+                test "is client error" <| \_ ->
+                    expectBadStatus 400 responseError
+
+            , awaitError "GET with bad token" (httpGet (Just "bad token")) <| \responseError ->
+                test "is client error" <| \_ ->
+                    expectBadStatus 400 responseError
+
+            , await "create test session" createTestSession <| \session ->
+              await "GET with good token" (httpGet (Just session.emailConfirmationToken)) <| \response ->
+                let
+                    codeDecoder =
+                        Json.Decode.field "confirmationCode" Json.Decode.string
+                in
+                concat
+                    [ test "is success" <| \_ ->
+                        Expect.equal 200 response.statusCode
+
+                    , await "get updated session" (Session.getWithEmailConfirmationToken db session.emailConfirmationToken) <| \updatedSession ->
+                        test "responds with confirmation code" <| \_ ->
+                            when Helper.decodeJson codeDecoder response.data is
+                                Just code ->
+                                    Expect.all
+                                        [ String.count >> Expect.equal 8
+                                        , Just >> Expect.equal updatedSession.confirmationCode
+                                        ]
+                                        code
+
+                                Nothing ->
+                                    Expect.fail "Failed to decode confirmation code from response"
+
+                    , await "GET again with same token (idempotent)" (httpGet (Just session.emailConfirmationToken)) <| \response2 ->
+                        test "returns same code" <| \_ ->
+                            Expect.equal response.data response2.data
+                    ]
+
+            , await "create session for expired email confirmation test" createTestSession <| \expiredSession ->
+              await "update session to be expired (created 31 minutes ago)" (forceEmailConfirmationExpiration db expiredSession) <| \_ ->
+              awaitError "GET with expired session token" (httpGet (Just expiredSession.emailConfirmationToken)) <| \responseError ->
+                test "is client error" <| \_ ->
+                    expectBadStatus 400 responseError
+            ]
         ]
     ]
+
+
+forceEmailConfirmationExpiration : Db.Connection -> Session -> Task Db.Error Int
+forceEmailConfirmationExpiration db session =
+    Task.await Time.now <| \now ->
+        let
+            past =
+                now
+                    |> Time.posixToMillis
+                    |> (\m -> m - (31 * 60 * 1000)) -- 31 mins ago
+                    |> Time.millisToPosix
+        in
+        Db.execute db
+            { statement = "UPDATE session SET created = :created WHERE email_confirmation_token = :token"
+            , parameters =
+                [ Db.Encode.posix "created" past
+                , Db.Encode.string "token" session.emailConfirmationToken
+                ]
+            }
