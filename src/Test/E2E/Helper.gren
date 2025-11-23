@@ -1,5 +1,6 @@
 module Test.E2E.Helper exposing
-    ( expectBadStatus
+    ( createSession
+    , expectBadStatus
     , expectJson
     , initDb
     , get
@@ -9,25 +10,34 @@ module Test.E2E.Helper exposing
 
 
 import Bytes exposing (Bytes)
+import Crypto
 import Db
 import Email
 import Expect exposing (Expectation)
 import HttpClient exposing (Response)
 import Json.Decode
 import Json.Encode
+import Session exposing (Session)
 import Task exposing (Task)
 import User
 
 
-url : String -> String
-url path =
-    "http://localhost:3000" ++ path
+-- DB
 
 
 initDb : HttpClient.Permission -> Db.Connection
 initDb httpPerm =
     -- TODO: get db url from env
     Db.init httpPerm "http://localhost:12321/local"
+
+
+-- HTTP
+
+
+url : String -> String
+url path =
+    "http://localhost:3000" ++ path
+
 
 
 get : HttpClient.Permission -> String -> Task HttpClient.Error (HttpClient.Response {})
@@ -79,3 +89,23 @@ expectJson decoder expected bytes =
 
                 Err error ->
                     Expect.fail (Json.Decode.errorToString error)
+
+
+-- SESSIONS
+
+
+{-| Create a session for a user with the example email.
+-}
+createSession : 
+    { db : Db.Connection, secureContext : Crypto.SecureContext }
+    -> Task Db.Error Session
+createSession { db, secureContext } =
+    User.findOrCreate db Email.example
+        |> Task.andThen
+            (\user ->
+                Session.create 
+                    { db = db
+                    , secureContext = secureContext
+                    , user = user 
+                    }
+            )

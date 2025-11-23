@@ -1,5 +1,7 @@
 module Route.Session exposing
     ( create
+    , confirmEmail
+    , confirmEmailPath
     )
 
 
@@ -13,14 +15,30 @@ import HttpServer.Response as Response exposing (Response)
 import Postmark
 import Json.Decode
 import Json.Encode
+import Route.Error
 import Session exposing (Session)
 import Task exposing (Task)
+import Url.Builder
 import User exposing (User)
 
 
 type Error
     = DbError Db.Error
     | SendEmailFailed HttpClient.Error
+
+
+-- PATHS
+
+
+confirmEmailPath : { token : Maybe String } -> String
+confirmEmailPath { token } =
+    let
+        query =
+            when token is
+                Just t -> [ Url.Builder.string "token" t ]
+                Nothing -> []
+    in
+    Url.Builder.absolute [ "session", "confirm-email" ] query
 
 
 -- ENDPOINTS
@@ -37,9 +55,20 @@ create :
 create { db, secureContext, postmark, requestData, response } =
     findOrCreateUser db requestData.email
         |> Task.andThen (createSession db secureContext )
-        |> Task.andThen (sendEmailValidationLink postmark)
+        |> Task.andThen (sendEmailConfirmationLink postmark)
         |> Task.map (createSuccess response)
         |> Task.onError (createFailed response)
+
+
+confirmEmail :
+    { db : Db.Connection
+    , requestData : { token : String }
+    , response : Response
+    }
+    -> Task Never Response
+confirmEmail { db, requestData, response } =
+    Task.succeed response  
+    --Route.Error.invalidRequestData response "Invalid token"
 
 
 -- ACTIONS
@@ -57,12 +86,12 @@ createSession db secureContext user =
         |> Task.mapError DbError
 
 
-sendEmailValidationLink : Postmark.Configuration -> Session -> Task Error Session
-sendEmailValidationLink postmarkConfig session =
+sendEmailConfirmationLink : Postmark.Configuration -> Session -> Task Error Session
+sendEmailConfirmationLink postmarkConfig session =
     { to = session.user.email |> Email.toString
     , subject = "Gren: Confirm your email address"
     , textBody =
-        "TODO: link with this token: " ++ session.emailValidationToken
+        "TODO: link with this token: " ++ session.emailConfirmationToken
     }
         |> Postmark.send postmarkConfig
         |> Task.mapError SendEmailFailed

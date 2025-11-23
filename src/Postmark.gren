@@ -17,8 +17,6 @@ url =
     "https://api.postmarkapp.com/email"
 
 
--- Might not want to always hardcode this. But for now we're only using this for
--- email validation.
 from : String
 from =
     "no-reply@gren-lang.org"

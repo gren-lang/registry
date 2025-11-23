@@ -16,7 +16,7 @@ import User exposing (User)
 type alias Session =
     { created : Time.Posix
     , user : User
-    , emailValidationToken : String
+    , emailConfirmationToken : String
     , fetchSessionToken : String
     }
 
@@ -34,7 +34,7 @@ create { db, user, secureContext } =
         dbInsert db
             { created = now
             , user = user
-            , emailValidationToken = uuid1
+            , emailConfirmationToken = uuid1
             , fetchSessionToken = uuid2
             }
 
@@ -45,13 +45,13 @@ dbInsert db session =
         Db.execute db 
             { statement = 
                 """
-                insert into session (created, user_id, email_validation_token, fetch_session_token)
-                values (:created, :user_id, :email_validation_token, :fetch_session_token)
+                insert into session (created, user_id, email_confirmation_token, fetch_session_token)
+                values (:created, :user_id, :email_confirmation_token, :fetch_session_token)
                 """
             , parameters =
                 [ Db.Encode.posix "created" session.created
                 , Db.Encode.int "user_id" session.user.id
-                , Db.Encode.string "email_validation_token" session.emailValidationToken
+                , Db.Encode.string "email_confirmation_token" session.emailConfirmationToken
                 , Db.Encode.string "fetch_session_token" session.fetchSessionToken
                 ]
             }
