@@ -2,6 +2,7 @@ module Test.E2E.Route.Session exposing (tests)
 
 
 import Bytes
+import Crypto
 import Db
 import Db.Encode
 import Db.Decode
@@ -12,13 +13,13 @@ import Json.Decode
 import Json.Encode
 import Route.Session
 import Task exposing (Task)
-import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test)
+import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test, todo)
 import Test.E2E.Helper as Helper exposing (initDb, get, post, postWithJson, expectBadStatus, expectJson)
 import User exposing (User)
 
 
-tests : HttpClient.Permission -> Array Test
-tests httpPerm =
+tests : HttpClient.Permission -> Crypto.SecureContext -> Array Test
+tests httpPerm secureContext =
     let
         db : Db.Connection
         db =
@@ -91,14 +92,39 @@ tests httpPerm =
 
 
         , describe "Validate email" <|
-            [ awaitError "GET with bad token"
-                (Route.Session.validateEmailPath { token = Just "oops" }
-                    |> Helper.get httpPerm
-                )
-                (\response ->
-                    test "is auth error" <| \_ ->
-                        expectBadStatus 400 response
-                )
+            let
+                get token =
+                    Route.Session.validateEmailPath { token = Just token }
+                        |> Helper.get httpPerm
+
+                createSession =
+                    Helper.createSession 
+                        { db = db
+                        , secureContext = secureContext
+                        }
+            in
+            [ awaitError "GET with bad token" (get "bad token") <| \responseError ->
+                test "is auth error" <| \_ ->
+                    expectBadStatus 400 responseError
+
+            , await "create test session" createSession <| \session ->
+              awaitError "GET with good token" (get session.emailValidationToken) <|
+                \response ->
+                    test "TEMP debugging" <| \_ ->
+                        when response is
+                            HttpClient.BadStatus r ->
+                                Expect.equal (Just "asdf") <|
+                                    Bytes.toString r.data
+                            _ ->
+                                Expect.fail "shouldn't happen"
+                    {-
+                    concat
+                        [ test "is success" <| \_ ->
+                            Expect.equal 200 response.statusCode
+                        , test "responds with cli validation token" <| \_ ->
+                            Expect.fail "TODO: check response for cli validation token"
+                        ]
+                    -}
             ]
         ]
     ]

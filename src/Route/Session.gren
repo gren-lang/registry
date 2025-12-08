@@ -39,6 +39,7 @@ validateEmailPath { token } =
                 Nothing -> []
     in
     Url.Builder.absolute [ "session", "validate-email" ] query
+        |> Debug.log "validate email path"
 
 
 -- ENDPOINTS
@@ -67,7 +68,8 @@ validateEmail :
     }
     -> Task Never Response
 validateEmail { db, requestData, response } =
-    Route.Error.invalidRequestData response "Invalid token"
+    Task.succeed response  
+    --Route.Error.invalidRequestData response "Invalid token"
 
 
 -- ACTIONS

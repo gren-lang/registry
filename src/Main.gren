@@ -223,9 +223,14 @@ route model request response =
                                 , response = response
                                 }
 
-                        _ ->
+                        -- -------------------------------------------------
+                        -- TODO: I'm getting Nothing here when I expect a token parsed from the query
+                        -- -------------------------------------------------
+                        oops ->
                             Route.Error.invalidRequestData response
-                                "Request must contain a `token`"
+                                (Debug.toString request.url)
+                                --(Debug.toString oops)
+                                --"Request must contain a `token`"
 
                 _ ->
                     Route.Error.notFound response
