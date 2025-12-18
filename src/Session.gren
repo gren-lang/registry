@@ -8,6 +8,7 @@ import Crypto
 import Db
 import Db.Encode
 import Db.Decode
+import Email
 import Task exposing (Task)
 import Time
 import User exposing (User)
@@ -18,6 +19,7 @@ type alias Session =
     , user : User
     , emailConfirmationToken : String
     , fetchSessionToken : String
+    , confirmationCode : Maybe String
     }
 
 
@@ -36,7 +38,57 @@ create { db, user, secureContext } =
             , user = user
             , emailConfirmationToken = uuid1
             , fetchSessionToken = uuid2
+            , confirmationCode = Nothing
             }
+
+
+get : Db.Connection -> Int -> Task Db.Error Session
+get db id =
+    Db.getOne db
+        { query =
+            """
+            select
+                s.created,
+                s.email_confirmation_token,
+                s.fetch_session_token, 
+                s.confirmation_code
+                u.id
+                u.created
+                u.email
+            from session s
+            inner join user u on (u.id = s.user_id)
+            where s.id = 
+            """
+        , parameters = [ Db.Encode.int "id" id ]
+        , decoder =
+            Db.Decode.string "u.email"
+                |> Db.Decode.andThen
+                    (\emailString ->
+                        when (Email.fromString emailString) is
+                            Nothing ->
+                                Db.Decode.fail ("Invalid user email in db: " ++ emailString)
+                            Just userEmail ->
+                                Db.Decode.get6
+                                    ( Db.Decode.posix "s.created" )
+                                    ( Db.Decode.string "s.email_confirmation_token" )
+                                    ( Db.Decode.string "s.fetch_session_token" )
+                                    ( Db.Decode.maybe Db.Decode.string "s.confirmation_code" )
+                                    ( Db.Decode.int "u.id" )
+                                    ( Db.Decode.posix "u.created" )
+                                    (\created emailConfirmationToken fetchSessionToken confirmationCode userId userCreated ->
+                                        { created = created
+                                        , emailConfirmationToken = emailConfirmationToken
+                                        , fetchSessionToken = fetchSessionToken
+                                        , confirmationCode = confirmationCode
+                                        , user =
+                                            { id = userId
+                                            , created = userCreated
+                                            , email = userEmail
+                                            }
+                                        }
+                                    )
+                    )
+        }
 
 
 dbInsert : Db.Connection -> Session -> Task Db.Error Session
