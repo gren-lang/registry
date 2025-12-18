@@ -93,22 +93,23 @@ tests httpPerm secureContext =
 
         , describe "Confirm email" <|
             let
-                get token =
-                    Route.Session.confirmEmailPath { token = Just token }
-                        |> Helper.get httpPerm
-
-                createSession =
+                createTestSession =
                     Helper.createSession 
                         { db = db
                         , secureContext = secureContext
                         }
+
+                httpGet token =
+                    Route.Session.confirmEmailPath { token = Just token }
+                        |> Helper.get httpPerm
+
             in
-            [ awaitError "GET with bad token" (get "bad token") <| \responseError ->
+            [ awaitError "GET with bad token" (httpGet "bad token") <| \responseError ->
                 test "is auth error" <| \_ ->
                     expectBadStatus 400 responseError
 
-            , await "create test session" createSession <| \session ->
-              await "GET with good token" (get session.emailConfirmationToken) <|
+            , await "create test session" createTestSession <| \session ->
+              await "GET with good token" (httpGet session.emailConfirmationToken) <|
                 \response ->
                     concat
                         [ test "is success" <| \_ ->
