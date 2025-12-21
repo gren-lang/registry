@@ -100,22 +100,27 @@ tests httpPerm secureContext =
                         }
 
                 httpGet token =
-                    Route.Session.confirmEmailPath { token = Just token }
+                    Route.Session.confirmEmailPath { token = token }
                         |> Helper.get httpPerm
 
             in
-            [ awaitError "GET with bad token" (httpGet "bad token") <| \responseError ->
-                test "is auth error" <| \_ ->
+            [ awaitError "GET with missing token" (httpGet Nothing) <| \responseError ->
+                test "is client error" <| \_ ->
+                    expectBadStatus 400 responseError
+
+            , awaitError "GET with bad token" (httpGet (Just "bad token")) <| \responseError ->
+                test "is client error" <| \_ ->
                     expectBadStatus 400 responseError
 
             , await "create test session" createTestSession <| \session ->
-              await "GET with good token" (httpGet session.emailConfirmationToken) <|
+              await "GET with good token" (httpGet (Just session.emailConfirmationToken)) <|
                 \response ->
                     concat
                         [ test "is success" <| \_ ->
                             Expect.equal 200 response.statusCode
                         , test "responds with confirmation code" <| \_ ->
-                            Expect.fail "TODO: check response for confirmation code"
+                            response.data
+                                |> Helper.expectStringContains "TODO: real code"
                         ]
             ]
         ]

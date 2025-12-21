@@ -67,8 +67,8 @@ confirmEmail :
     }
     -> Task Never Response
 confirmEmail { db, requestData, response } =
-    Task.succeed response  
-    --Route.Error.invalidRequestData response "Invalid token"
+    --Task.succeed response  
+    Route.Error.invalidRequestData response "Invalid token"
 
 
 -- ACTIONS
