@@ -1,6 +1,8 @@
 module Session exposing
     ( Session
     , create
+    , get
+    , getWithEmailConfirmationToken
     )
 
 
@@ -47,6 +49,15 @@ get db id =
     Db.getOne db
         { query = queryPrelude ++ " where s.id = :id"
         , parameters = [ Db.Encode.int "id" id ]
+        , decoder = dbDecoder
+        }
+
+
+getWithEmailConfirmationToken : Db.Connection -> String -> Task Db.Error Session
+getWithEmailConfirmationToken db token =
+    Db.getOne db
+        { query = queryPrelude ++ " where s.email_confirmation_token = :token"
+        , parameters = [ Db.Encode.string "token" token ]
         , decoder = dbDecoder
         }
 
