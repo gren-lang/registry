@@ -4,7 +4,6 @@ module Test.E2E.Helper exposing
     , expectBadStatus
     , expectJson
     , expectNoResultError
-    , expectStringContains
     , initDb
     , get
     , post
@@ -129,15 +128,3 @@ createSession { db, secureContext } =
                     , user = user 
                     }
             )
-
-
--- STRINGS
-
-expectStringContains : String -> String -> Expectation
-expectStringContains expected actual =
-    if String.contains expected actual then
-        Expect.pass
-    else
-        "Expected \"" ++ actual ++ "\" to contain \"" ++ expected ++ "\""
-            |> Expect.fail
-

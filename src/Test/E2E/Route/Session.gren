@@ -16,7 +16,7 @@ import Session exposing (Session)
 import String
 import Task exposing (Task)
 import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test)
-import Test.E2E.Helper as Helper exposing (initDb, get, post, postWithJson, expectBadStatus, expectJson, expectStringContains)
+import Test.E2E.Helper as Helper exposing (initDb, get, post, postWithJson, expectBadStatus, expectJson)
 import Time
 import User exposing (User)
 
