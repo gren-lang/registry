@@ -110,6 +110,9 @@ tests httpPerm secureContext =
                                 |> HttpClient.expectBytes
                                 |> HttpClient.send httpPerm
                         )
+
+                reloadSessionFromDb session =
+                    Session.getWithEmailConfirmationToken db session.emailConfirmationToken
             in
             [ awaitError "GET with missing token" (httpGet Nothing) <| \responseError ->
                 test "is client error" <| \_ ->
@@ -129,7 +132,7 @@ tests httpPerm secureContext =
                     [ test "is success" <| \_ ->
                         Expect.equal 200 response.statusCode
 
-                    , await "get updated session" (Session.getWithEmailConfirmationToken db session.emailConfirmationToken) <| \updatedSession ->
+                    , await "get updated session" (reloadSessionFromDb session) <| \updatedSession ->
                         test "responds with confirmation code" <| \_ ->
                             when Helper.decodeJson codeDecoder response.data is
                                 Just code ->
