@@ -72,18 +72,12 @@ Goals:
 
 Auth flow:
 
-1. CLI posts email address to the server (IN PROGRESS)
-    1. [X] server finds or creates row in `user` table
-    2. [X] server creates new row in `session` table with:
-        - `email_confirmation_token` for user to confirm their email address and get a `confirmation_code`
-        - `fetch_session_token` for fetching the session (once they have a `confirmation_code`)
-    4. [ ] server emails confirmation link with `email_confirmation_token` (postmark)
-    5. [ ] server returns fetch session link with `fetch_session_token`
-2. User follows email confirmation link to get a confirmation code.
-3. User enters confirmation code on the CLI, where it was prompting/waiting for it.
-4. CLI posts to the fetch link with the confirmation code.
-5. Server creates and returns a session token.
-6. CLI saves token on disk to use for authenticated requests.
+1. [X] CLI posts email address to the server. Server emails confirmation link.
+2. [X] User follows email confirmation link to get a confirmation code.
+3. [ ] User enters confirmation code on the CLI, where it was prompting/waiting for it.
+4. [ ] CLI posts to the fetch link with the confirmation code.
+5. [ ] Server creates and returns a session token.
+6. [ ] CLI saves token on disk to use for authenticated requests.
 
 Benefits:
 
