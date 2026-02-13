@@ -69,7 +69,7 @@ confirmEmail :
     -> Task Never Response
 confirmEmail { db, requestData, response } =
     let
-        handleConfirmatoinCode session =
+        handleConfirmationCode session =
             Time.now
                 |> Task.andThen (\now ->
                     if Session.emailConfirmationExpired now session then
@@ -102,7 +102,7 @@ confirmEmail { db, requestData, response } =
     in
     Session.getWithEmailConfirmationToken db requestData.token
         |> Task.onError handleDbError
-        |> Task.andThen handleConfirmatoinCode
+        |> Task.andThen handleConfirmationCode
         |> Task.andThen (\code -> confirmEmailSuccess response code)
         |> Task.onError (Route.Error.invalidRequestData response)
 
