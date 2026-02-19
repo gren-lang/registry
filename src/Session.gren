@@ -4,10 +4,13 @@ module Session exposing
     )
 
 
+import Bytes.Decode
 import Crypto
 import Db
 import Db.Encode
 import Db.Decode
+import Email
+import Math
 import Task exposing (Task)
 import Time
 import User exposing (User)
@@ -16,7 +19,7 @@ import User exposing (User)
 type alias Session =
     { created : Time.Posix
     , user : User
-    , emailValidationToken : String
+    , emailConfirmationCode : String
     , fetchSessionToken : String
     }
 
@@ -28,15 +31,67 @@ create :
     } 
     -> Task Db.Error Session
 create { db, user, secureContext } =
-    Task.await (Crypto.randomUuidV4 secureContext) <| \uuid1 ->
+    Task.await generateEmailConfirmationCode <| \code ->
     Task.await (Crypto.randomUuidV4 secureContext) <| \uuid2 ->
     Task.await Time.now <| \now ->
         dbInsert db
             { created = now
             , user = user
-            , emailValidationToken = uuid1
+            , emailConfirmationCode = code
             , fetchSessionToken = uuid2
             }
+
+
+{-| Generate a short email confirmation code.
+
+Using 8 unambiguous characters so it is easily typed by hand if needed. This
+should be relatively secure since it's short-lived and will be paired with the
+secure fetchSessionToken in the cli's session token request.
+
+The unambiguous character pool is 32 chars: (digits 2-9 and uppercase A-Z
+excluding I and O). Since 32 is a power of 2, modBy 32 on a random byte (0-255)
+gives a perfectly uniform distribution (256 / 32 = 8).
+-}
+generateEmailConfirmationCode : Task x String
+generateEmailConfirmationCode =
+    let
+        charPool =
+            String.toArray "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+    in
+    Crypto.getRandomUInt8Values 8
+        |> Task.map
+            (\randomBytes ->
+                randomBytes
+                    |> Bytes.Decode.decode (decodeNUInt8s 8)
+                    -- TODO: should we fail the task if we can't decode?
+                    |> Maybe.withDefault []
+                    |> Array.map
+                        (\byte ->
+                            Array.get (Math.modBy 32 byte) charPool
+                                -- TODO: should we fail the task here too?
+                                |> Maybe.withDefault '?'
+                        )
+                    |> String.fromArray
+            )
+
+
+decodeNUInt8s : Int -> Bytes.Decode.Decoder (Array Int)
+decodeNUInt8s count =
+    Bytes.Decode.loop { remaining = count, acc = [] } <| \{ remaining, acc } ->
+        if remaining <= 0 then
+            Bytes.Decode.succeed (Bytes.Decode.Done acc)
+        else
+            Bytes.Decode.unsignedInt8
+                |> Bytes.Decode.map 
+                    (\byte ->
+                        Bytes.Decode.Loop 
+                            { remaining = remaining - 1
+                            , acc = Array.pushLast byte acc 
+                            }
+                    )
+
+
+-- DB HELPERS
 
 
 dbInsert : Db.Connection -> Session -> Task Db.Error Session
@@ -45,13 +100,13 @@ dbInsert db session =
         Db.execute db 
             { statement = 
                 """
-                insert into session (created, user_id, email_validation_token, fetch_session_token)
-                values (:created, :user_id, :email_validation_token, :fetch_session_token)
+                insert into session (created, user_id, email_confirmation_code, fetch_session_token)
+                values (:created, :user_id, :email_confirmation_code, :fetch_session_token)
                 """
             , parameters =
                 [ Db.Encode.posix "created" session.created
                 , Db.Encode.int "user_id" session.user.id
-                , Db.Encode.string "email_validation_token" session.emailValidationToken
+                , Db.Encode.string "email_confirmation_code" session.emailConfirmationCode
                 , Db.Encode.string "fetch_session_token" session.fetchSessionToken
                 ]
             }

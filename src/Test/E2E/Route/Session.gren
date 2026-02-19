@@ -78,6 +78,8 @@ tests httpPerm =
                                 |> expectJson
                                     (Json.Decode.field "fetchSessionToken" Json.Decode.string)
                                     expectedToken
+
+                        -- TODO: if/how to test confirmation code gets emailed?
                     )
                 ]
         ]
