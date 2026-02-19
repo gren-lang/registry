@@ -40,6 +40,7 @@ This project uses [devbox](https://www.jetify.com/devbox) and [direnv](https://d
 Install both for the smoothest experience.
 
 Copy `.envrc.sample` to `.envrc` and set environment variables appropriately.
+Then run `direnv allow` so it will be evaluated when you enter this directory.
 
 You can run the server with `devbox services up`
 
