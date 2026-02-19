@@ -48,6 +48,8 @@ To run in the background, run `devbox services up -b` and stop with `devbox serv
 
 Run tests with `devbox run test`
 
+See `devbox.json` for other local dev scripts.
+
 ## Open Questions
 
 * [ ] Refresh tokens?
