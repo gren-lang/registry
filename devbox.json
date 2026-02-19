@@ -8,7 +8,7 @@
     "init_hook": [],
     "scripts": {
       "test": [
-        "./test.sh"
+        "./scripts/test.sh"
       ]
     }
   }
