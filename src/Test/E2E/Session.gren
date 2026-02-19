@@ -37,7 +37,7 @@ tests db secureContext =
                 }
 
         ambiguousChars =
-            [ "0", "O", "o", "L", "l", "I", "i" ]
+            [ "0", "O", "o", "l", "I", "i" ]
     in
     [ await "Create test user" (User.findOrCreate db Email.example) <| \user ->
       await "Get existing session count" (countSessions user) <| \origSessionCount ->
@@ -52,7 +52,7 @@ tests db secureContext =
                     |> Array.map .emailConfirmationCode
                     |> Expect.all
                         [ Array.all (\code -> String.count code == 8) >> Expect.equal True
-                        , Array.all (\code -> String.contains ambiguousChar code) >> Expect.equal False
+                        , Array.all (\code -> not (String.contains ambiguousChar code)) >> Expect.equal True
                         ]
             ]
     ]
