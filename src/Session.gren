@@ -31,7 +31,7 @@ create :
     } 
     -> Task Db.Error Session
 create { db, user, secureContext } =
-    Task.await generateEmailConfirmationCode <| \code ->
+    Task.await (generateEmailConfirmationCode secureContext) <| \code ->
     Task.await (Crypto.randomUuidV4 secureContext) <| \uuid2 ->
     Task.await Time.now <| \now ->
         dbInsert db
@@ -42,53 +42,22 @@ create { db, user, secureContext } =
             }
 
 
-{-| Generate a short email confirmation code.
-
-Using 8 unambiguous characters so it is easily typed by hand if needed. This
-should be relatively secure since it's short-lived and will be paired with the
-secure fetchSessionToken in the cli's session token request.
-
-The unambiguous character pool is 32 chars: (digits 2-9 and uppercase A-Z
-excluding I and O). Since 32 is a power of 2, modBy 32 on a random byte (0-255)
-gives a perfectly uniform distribution (256 / 32 = 8).
+{-| Generate a short email confirmation code that can be typed by hand.
 -}
-generateEmailConfirmationCode : Task x String
-generateEmailConfirmationCode =
-    let
-        charPool =
-            String.toArray "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
-    in
-    Crypto.getRandomUInt8Values 8
+generateEmailConfirmationCode : Crypto.SecureContext -> Task x String
+generateEmailConfirmationCode secureContext =
+    Crypto.randomUuidV4 secureContext
         |> Task.map
-            (\randomBytes ->
-                randomBytes
-                    |> Bytes.Decode.decode (decodeNUInt8s 8)
-                    -- TODO: should we fail the task if we can't decode?
-                    |> Maybe.withDefault []
-                    |> Array.map
-                        (\byte ->
-                            Array.get (Math.modBy 32 byte) charPool
-                                -- TODO: should we fail the task here too?
-                                |> Maybe.withDefault '?'
-                        )
-                    |> String.fromArray
+            (\uuid ->
+                uuid
+                    |> String.toUpper
+                    |> String.takeFirst 8
+
+                    -- 1 and 0 are valid hex characters that could be
+                    -- visually confused with another character.
+                    |> String.replace "1" "L"
+                    |> String.replace "0" "P"
             )
-
-
-decodeNUInt8s : Int -> Bytes.Decode.Decoder (Array Int)
-decodeNUInt8s count =
-    Bytes.Decode.loop { remaining = count, acc = [] } <| \{ remaining, acc } ->
-        if remaining <= 0 then
-            Bytes.Decode.succeed (Bytes.Decode.Done acc)
-        else
-            Bytes.Decode.unsignedInt8
-                |> Bytes.Decode.map 
-                    (\byte ->
-                        Bytes.Decode.Loop 
-                            { remaining = remaining - 1
-                            , acc = Array.pushLast byte acc 
-                            }
-                    )
 
 
 -- DB HELPERS
