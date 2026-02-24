@@ -37,7 +37,7 @@ create :
 create { db, secureContext, postmark, requestData, response } =
     findOrCreateUser db requestData.email
         |> Task.andThen (createSession db secureContext )
-        |> Task.andThen (sendEmailValidationLink postmark)
+        |> Task.andThen (sendEmailConfirmationCode postmark)
         |> Task.map (createSuccess response)
         |> Task.onError (createFailed response)
 
@@ -57,12 +57,12 @@ createSession db secureContext user =
         |> Task.mapError DbError
 
 
-sendEmailValidationLink : Postmark.Configuration -> Session -> Task Error Session
-sendEmailValidationLink postmarkConfig session =
+sendEmailConfirmationCode : Postmark.Configuration -> Session -> Task Error Session
+sendEmailConfirmationCode postmarkConfig session =
     { to = session.user.email |> Email.toString
     , subject = "Gren: Confirm your email address"
     , textBody =
-        "TODO: link with this token: " ++ session.emailValidationToken
+        "Your confirmation code is: " ++ session.emailConfirmationCode
     }
         |> Postmark.send postmarkConfig
         |> Task.mapError SendEmailFailed

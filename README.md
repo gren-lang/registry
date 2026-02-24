@@ -40,12 +40,15 @@ This project uses [devbox](https://www.jetify.com/devbox) and [direnv](https://d
 Install both for the smoothest experience.
 
 Copy `.envrc.sample` to `.envrc` and set environment variables appropriately.
+Then run `direnv allow` so it will be evaluated when you enter this directory.
 
 You can run the server with `devbox services up`
 
 To run in the background, run `devbox services up -b` and stop with `devbox services stop`
 
 Run tests with `devbox run test`
+
+See `devbox.json` for other local dev scripts.
 
 ## Open Questions
 
@@ -71,23 +74,16 @@ Goals:
 
 Auth flow:
 
-1. CLI posts email address to the server (IN PROGRESS)
-    1. [X] server finds or creates row in `user` table
-    2. [X] server creates new row in `session` table with:
-        - `email_validation_token` for unique url for user to validate their email address and get a `validation_code`
-        - `fetch_session_token` for unique url for cli to fetch session (along with `validation_code`)
-    4. [ ] server emails validation link with `email_validation_token` (postmark)
-    5. [ ] server returns fetch session link with `fetch_session_token`
-2. User follows email validation link to get a validation code.
-3. User enters validation code on the CLI, where it was prompting/waiting for it.
-4. CLI posts to the fetch link with the validation code.
-5. Server creates and returns a session token.
-6. CLI saves token on disk to use for authenticated requests.
+1. User initiates auth on CLI, providing email address.
+2. CLI posts email address to the server, receives a fetch session token, and waits for confirmation code.
+3. Server emails a confirmation code to the user. User enters code in CLI.
+4. CLI posts fetch session token and email confirmation code to get a secure session token.
+5. CLI saves token on disk to use for authenticated requests.
 
-Benefits:
+Goals:
 
 - Not saving or requiring passwords.
-- CLI auth tightly coupled to email validation.
-    - Can't get session token without fetch token/link from the cli initiation and the validation code.
-    - Can't get the validation code without validation token/link from the email.
-- CLI auth loosely coupled to where you check your email (clicking validation link in email gives you a code that can be manually entered on the cli)
+- CLI auth tightly coupled to email confirmation.
+- CLI auth loosely coupled to where you check your email.
+    - email confirmation code is short and uses easily-identifiable characters
+    - tokens are long UUIDs but managed by the CLI and server

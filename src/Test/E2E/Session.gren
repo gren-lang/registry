@@ -7,37 +7,52 @@ import Db.Encode
 import Db.Decode
 import Email
 import Expect
+import Fuzz
 import Session
 import Task exposing (Task)
-import Test.Runner.Effectful exposing (Test, await, concat, describe, test)
+import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, fuzz, test)
 import User exposing (User)
 
 
 tests : Db.Connection -> Crypto.SecureContext -> Array Test
 tests db secureContext =
     let
-        getUser : Task Db.Error User
-        getUser =
-            User.findOrCreate db Email.example
+        sessionSampleSize =
+            100
 
-        countUserSessions : User -> Task Db.Error Int
-        countUserSessions user =
+        createTestSessions user =
+            Task.sequence <|
+                Array.initialize sessionSampleSize 0 <| \_ ->
+                    Session.create 
+                        { db = db
+                        , user = user
+                        , secureContext = secureContext
+                        }
+
+        countSessions user =
             Db.getOne db
                 { query = "select count(*) as count from session where user_id = :user_id"
                 , parameters = [ Db.Encode.int "user_id" user.id ]
                 , decoder = Db.Decode.int "count"
                 }
+
+        ambiguousChars =
+            [ "0", "O", "o", "l", "I", "i" ]
     in
-    [ describe "Session.create"
-        [ await "Create test user" getUser <| \user ->
-          await "Get initial session count" (countUserSessions user) <| \countBeforeCreate ->
-          await "Create session" (Session.create { db = db, user = user, secureContext = secureContext }) <| \session ->
-          await "Get new session count" (countUserSessions user) <| \countAfterCreate ->
-            concat
-                [ test "Session is created" <| \_ ->
-                    Expect.equal (countBeforeCreate + 1) countAfterCreate
-                , test "Session is created for user" <| \_ ->
-                    Expect.equal user session.user
-                ]
-        ]
+    [ await "Create test user" (User.findOrCreate db Email.example) <| \user ->
+      await "Get existing session count" (countSessions user) <| \origSessionCount ->
+      await "Create new test sessions" (createTestSessions user) <| \sessions ->
+      await "Get new session count" (countSessions user) <| \newSessionCount ->
+        concat
+            [ test "Session.create is successful" <| \_ ->
+                Expect.equal (newSessionCount - origSessionCount) sessionSampleSize
+
+            , fuzz (Fuzz.oneOfValues ambiguousChars) "emailConfirmationCode is 8 unambiguous characters" <| \ambiguousChar ->
+                sessions
+                    |> Array.map .emailConfirmationCode
+                    |> Expect.all
+                        [ Array.all (\code -> String.count code == 8) >> Expect.equal True
+                        , Array.all (\code -> not (String.contains ambiguousChar code)) >> Expect.equal True
+                        ]
+            ]
     ]

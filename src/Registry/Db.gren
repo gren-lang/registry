@@ -36,17 +36,14 @@ migrate db =
                 created INTEGER NOT NULL,
                 user_id INTEGER NOT NULL REFERENCES user(id),
 
-                -- Token used in email validation link.
-                email_validation_token TEXT NOT NULL UNIQUE,
-
-                -- Create and show this when user follows email validation link.
+                -- Code emailed to user for email confirmation.
                 -- User will provide this to the CLI.
-                cli_validation_token TEXT UNIQUE,
+                email_confirmation_code TEXT NOT NULL UNIQUE,
 
                 -- Token used by the CLI to fetch session token.
                 fetch_session_token TEXT NOT NULL UNIQUE,
 
-                -- Create and return this when CLI posts with validation_code and fetch_session_token
+                -- Create and return this when CLI posts with email_confirmation_code and fetch_session_token
                 session_token TEXT UNIQUE
             ) STRICT
             """

@@ -2,13 +2,18 @@
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.6/.schema/devbox.schema.json",
   "packages": [
     "nodejs@20",
-    "gren@0.6.3"
+    "gren@0.6.3",
+    "curl@latest",
+    "jq@latest"
   ],
   "shell": {
     "init_hook": [],
     "scripts": {
       "test": [
-        "./test.sh"
+        "./scripts/test.sh"
+      ],
+      "create-session": [
+        "./scripts/create-session.sh \"$@\""
       ]
     }
   }

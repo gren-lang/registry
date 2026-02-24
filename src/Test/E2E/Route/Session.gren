@@ -22,14 +22,6 @@ tests httpPerm =
         db : Db.Connection
         db =
             initDb httpPerm
-
-        getUser : String -> Task Db.Error User
-        getUser email =
-            Db.getOne db
-                { query = "select * from user where email = :email"
-                , parameters = [ Db.Encode.string "email" email ]
-                , decoder = User.decoder
-                }
     in
     [ awaitError "GET /session" (get httpPerm "/session") <| \response ->
         test "404s" <| \_ ->
@@ -86,6 +78,8 @@ tests httpPerm =
                                 |> expectJson
                                     (Json.Decode.field "fetchSessionToken" Json.Decode.string)
                                     expectedToken
+
+                        -- TODO: if/how to test confirmation code gets emailed?
                     )
                 ]
         ]

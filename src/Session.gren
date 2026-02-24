@@ -4,10 +4,13 @@ module Session exposing
     )
 
 
+import Bytes.Decode
 import Crypto
 import Db
 import Db.Encode
 import Db.Decode
+import Email
+import Math
 import Task exposing (Task)
 import Time
 import User exposing (User)
@@ -16,7 +19,7 @@ import User exposing (User)
 type alias Session =
     { created : Time.Posix
     , user : User
-    , emailValidationToken : String
+    , emailConfirmationCode : String
     , fetchSessionToken : String
     }
 
@@ -28,15 +31,36 @@ create :
     } 
     -> Task Db.Error Session
 create { db, user, secureContext } =
-    Task.await (Crypto.randomUuidV4 secureContext) <| \uuid1 ->
+    Task.await (generateEmailConfirmationCode secureContext) <| \code ->
     Task.await (Crypto.randomUuidV4 secureContext) <| \uuid2 ->
     Task.await Time.now <| \now ->
         dbInsert db
             { created = now
             , user = user
-            , emailValidationToken = uuid1
+            , emailConfirmationCode = code
             , fetchSessionToken = uuid2
             }
+
+
+{-| Generate a short email confirmation code that can be typed by hand.
+-}
+generateEmailConfirmationCode : Crypto.SecureContext -> Task x String
+generateEmailConfirmationCode secureContext =
+    Crypto.randomUuidV4 secureContext
+        |> Task.map
+            (\uuid ->
+                uuid
+                    |> String.toUpper
+                    |> String.takeFirst 8
+
+                    -- 1 and 0 are valid hex characters that could be
+                    -- visually confused with another character.
+                    |> String.replace "1" "L"
+                    |> String.replace "0" "P"
+            )
+
+
+-- DB HELPERS
 
 
 dbInsert : Db.Connection -> Session -> Task Db.Error Session
@@ -45,13 +69,13 @@ dbInsert db session =
         Db.execute db 
             { statement = 
                 """
-                insert into session (created, user_id, email_validation_token, fetch_session_token)
-                values (:created, :user_id, :email_validation_token, :fetch_session_token)
+                insert into session (created, user_id, email_confirmation_code, fetch_session_token)
+                values (:created, :user_id, :email_confirmation_code, :fetch_session_token)
                 """
             , parameters =
                 [ Db.Encode.posix "created" session.created
                 , Db.Encode.int "user_id" session.user.id
-                , Db.Encode.string "email_validation_token" session.emailValidationToken
+                , Db.Encode.string "email_confirmation_code" session.emailConfirmationCode
                 , Db.Encode.string "fetch_session_token" session.fetchSessionToken
                 ]
             }
