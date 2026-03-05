@@ -4,13 +4,11 @@ import Bytes exposing (Bytes)
 import Crypto
 import Db
 import Dict
-import Email exposing (Email)
 import Db.Encode
 import HttpClient
 import HttpServer exposing (Request, ServerError(..), Method(..))
 import HttpServer.Response as Response exposing (Response)
 import Init
-import Json.Decode
 import Node exposing (Environment, Program)
 import Postmark
 import Registry.Db
@@ -183,6 +181,11 @@ route model request response =
             }
     in
     when config is
+        
+
+        -- CHECK SERVER PRE-REQS
+
+
         { secureContext = Nothing } ->
             Route.Error.serverError response "Missing secure context."
 
@@ -192,43 +195,30 @@ route model request response =
         { postmark = Just postmark, secureContext = Just secureContext } ->
             when { method = request.method, path = path } is
 
-                { method = POST, path = [ "session" ] } ->
-                    when getEmail request.body is
-                        Just email ->
-                            Route.Session.create 
-                                { db = model.db
-                                , postmark = postmark
-                                , secureContext = secureContext
-                                , requestData = { email = email }
-                                , response = response
-                                }
+                
+                -- SESSION ROUTES
 
-                        Nothing ->
-                            Route.Error.invalidRequestData response
-                                "Request json did not contain a valid `email` field."
+
+                { method = POST, path = [ "session" ] } ->
+                    Route.Session.create
+                        { db = model.db
+                        , postmark = postmark
+                        , secureContext = secureContext
+                        , body = request.body
+                        , response = response
+                        }
+
+                { method = POST, path = [ "session", "fetch" ] } ->
+                    Route.Session.fetch
+                        { db = model.db
+                        , secureContext = secureContext
+                        , body = request.body
+                        , response = response
+                        }
 
                 _ ->
                     Route.Error.notFound response
 
-
-getEmail : Bytes -> Maybe Email
-getEmail bytes =
-    bytes
-        |> Bytes.toString
-        |> Maybe.andThen decodeEmail
-        |> Maybe.andThen Email.fromString
-
-
-decodeEmail : String -> Maybe String
-decodeEmail json =
-    json
-        |> Json.Decode.decodeString emailDecoder
-        |> Result.toMaybe
-
-
-emailDecoder : Json.Decode.Decoder String
-emailDecoder =
-    Json.Decode.field "email" Json.Decode.string
 
 
 print : Stream.Writable Bytes -> String -> Task Never {}

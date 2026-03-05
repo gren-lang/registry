@@ -44,7 +44,7 @@ migrate db =
                 fetch_session_token TEXT NOT NULL UNIQUE,
 
                 -- Create and return this when CLI posts with email_confirmation_code and fetch_session_token
-                session_token TEXT UNIQUE
+                token TEXT UNIQUE
             ) STRICT
             """
           , parameters = []

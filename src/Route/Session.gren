@@ -1,5 +1,6 @@
 module Route.Session exposing
     ( create
+    , fetch
     )
 
 
@@ -11,6 +12,7 @@ import HttpClient
 import HttpServer exposing (Request)
 import HttpServer.Response as Response exposing (Response)
 import Postmark
+import Route.Error
 import Json.Decode
 import Json.Encode
 import Session exposing (Session)
@@ -26,20 +28,112 @@ type Error
 -- ENDPOINTS
 
 
-create : 
+{-| POST email to create a session.
+
+This will email a confirmation code and return a fetch session token.
+Both must be POSTED to `fetch` to get a long lived session token.
+-}
+create :
     { db : Db.Connection
     , postmark : Postmark.Configuration
     , secureContext : Crypto.SecureContext
-    , requestData : { email : Email }
+    , body : Bytes
     , response : Response
     }
     -> Task Never Response
-create { db, secureContext, postmark, requestData, response } =
-    findOrCreateUser db requestData.email
-        |> Task.andThen (createSession db secureContext )
-        |> Task.andThen (sendEmailConfirmationCode postmark)
-        |> Task.map (createSuccess response)
-        |> Task.onError (createFailed response)
+create { db, secureContext, postmark, body, response } =
+    when getEmail body is
+        Nothing ->
+            Route.Error.invalidRequestData response
+                "Request json did not contain a valid `email` field."
+
+        Just email ->
+            findOrCreateUser db email
+                |> Task.andThen (createSession db secureContext)
+                |> Task.andThen (sendEmailConfirmationCode postmark)
+                |> Task.map (createSuccess response)
+                |> Task.onError (createFailed response)
+
+
+{-| Fetch your long-lived session token.
+
+POST emailConfirmationCode and fetchSessionToken from the `create` call to get
+a long-lived session token you can store to make authenticated API requests.
+-}
+fetch :
+    { db : Db.Connection
+    , secureContext : Crypto.SecureContext
+    , body : Bytes
+    , response : Response
+    }
+    -> Task Never Response
+fetch { db, secureContext, body, response } =
+    when getFetchRequest body is
+        Nothing ->
+            Route.Error.invalidRequestData response
+                "Request json invalid."
+
+        Just { fetchSessionToken, emailConfirmationCode } ->
+            Session.fetch
+                { db = db
+                , secureContext = secureContext
+                , fetchSessionToken = fetchSessionToken
+                , emailConfirmationCode = emailConfirmationCode
+                }
+                |> Task.mapError DbError
+                |> Task.map (fetchSuccess response)
+                |> Task.onError (fetchFailed response)
+
+
+-- REQUEST PARSING
+
+
+getEmail : Bytes -> Maybe Email
+getEmail bytes =
+    bytes
+        |> Bytes.toString
+        |> Maybe.andThen decodeEmail
+        |> Maybe.andThen Email.fromString
+
+
+decodeEmail : String -> Maybe String
+decodeEmail json =
+    json
+        |> Json.Decode.decodeString emailDecoder
+        |> Result.toMaybe
+
+
+emailDecoder : Json.Decode.Decoder String
+emailDecoder =
+    Json.Decode.field "email" Json.Decode.string
+
+
+type alias FetchRequest =
+    { fetchSessionToken : String
+    , emailConfirmationCode : String
+    }
+
+
+getFetchRequest : Bytes -> Maybe FetchRequest
+getFetchRequest bytes =
+    bytes
+        |> Bytes.toString
+        |> Maybe.andThen decodeFetchRequest
+
+
+decodeFetchRequest : String -> Maybe FetchRequest
+decodeFetchRequest json =
+    json
+        |> Json.Decode.decodeString fetchRequestDecoder
+        |> Result.toMaybe
+
+
+fetchRequestDecoder : Json.Decode.Decoder FetchRequest
+fetchRequestDecoder =
+    Json.Decode.map2
+        (\token code -> { fetchSessionToken = token, emailConfirmationCode = code })
+        (Json.Decode.field "fetchSessionToken" Json.Decode.string)
+        (Json.Decode.field "emailConfirmationCode" Json.Decode.string)
 
 
 -- ACTIONS
@@ -103,6 +197,45 @@ createFailed response error =
             response
                 |> Response.setStatus 500
                 |> setErrorMessage "Failed to send email"
+                |> Task.succeed
+
+
+fetchSuccess : Response -> String -> Response
+fetchSuccess response sessionToken =
+    let
+        responseJson =
+            Json.Encode.object
+                [ { key = "sessionToken"
+                  , value = Json.Encode.string sessionToken
+                  }
+                ]
+    in
+    response
+        |> Response.setHeader "Content-Type" "application/json"
+        |> Response.setBody (Json.Encode.encode 0 responseJson)
+
+
+fetchFailed : Response -> Error -> Task x Response
+fetchFailed response error =
+    when error is
+        DbError Db.NoResultError ->
+            response
+                |> Response.setStatus 400
+                |> setErrorMessage "Invalid token or confirmation code"
+                |> Task.succeed
+
+        DbError _ ->
+            response
+                -- TODO: server error logging
+                |> Response.setStatus 500
+                |> setErrorMessage "Unexpected DB error"
+                |> Task.succeed
+
+        SendEmailFailed _ ->
+            response
+                -- TODO: server error logging
+                |> Response.setStatus 500
+                |> setErrorMessage "Unexpected error"
                 |> Task.succeed
 
 

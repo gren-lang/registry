@@ -1,6 +1,7 @@
 module Session exposing
     ( Session
     , create
+    , fetch
     )
 
 
@@ -21,6 +22,7 @@ type alias Session =
     , user : User
     , emailConfirmationCode : String
     , fetchSessionToken : String
+    , token: Maybe String
     }
 
 
@@ -39,6 +41,7 @@ create { db, user, secureContext } =
             , user = user
             , emailConfirmationCode = code
             , fetchSessionToken = uuid2
+            , token = Nothing
             }
 
 
@@ -58,6 +61,51 @@ generateEmailConfirmationCode secureContext =
                     |> String.replace "1" "L"
                     |> String.replace "0" "P"
             )
+
+
+fetch :
+    { db : Db.Connection
+    , secureContext : Crypto.SecureContext
+    , fetchSessionToken : String
+    , emailConfirmationCode : String
+    }
+    -> Task Db.Error String
+fetch { db, secureContext, fetchSessionToken, emailConfirmationCode } =
+    let
+        getSession =
+            Db.getOne db
+                { query =
+                    """
+                    select id from session
+                    where fetch_session_token = :fetch_session_token
+                    and email_confirmation_code = :email_confirmation_code
+                    """
+                , parameters =
+                    [ Db.Encode.string "fetch_session_token" fetchSessionToken
+                    , Db.Encode.string "email_confirmation_code" emailConfirmationCode
+                    ]
+                , decoder =
+                    Db.Decode.int "id"
+                }
+
+        setSessionToken id sessionToken =
+            Db.execute db
+                { statement =
+                    """
+                    update session
+                    set token = :token
+                    where id = :id
+                    """
+                , parameters =
+                    [ Db.Encode.string "token" sessionToken
+                    , Db.Encode.int "id" id
+                    ]
+                }
+    in
+    Task.await getSession <| \sessionId ->
+    Task.await (Crypto.randomUuidV4 secureContext) <| \sessionToken ->
+    Task.await (setSessionToken sessionId sessionToken) <| \_ ->
+        Task.succeed sessionToken
 
 
 -- DB HELPERS
