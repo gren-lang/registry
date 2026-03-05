@@ -8,7 +8,7 @@ Serving actual users via the browser will come later.
 
 The goal is to be able to do the following operations:
 
-* [ ] Register a new user, or login
+* [X] Register a new user, or login
 * [ ] Register a publishing identity (`gren-lang` is a publishing identity, `me@example.com` is a user)
 * [ ] Add or remove additional users to a publishing identity
 * [ ] Permissions in a publishing identity (only download, publish new packages, user admin)
@@ -34,37 +34,6 @@ As much code as possible should be written in Gren, with as few dependencies as 
 Start by persisting the registry via filesystem on disk.
 Once task ports land (25S?), switch to sqlite via ports with litestream for backups.
 
-## Local Development
-
-This project uses [devbox](https://www.jetify.com/devbox) and [direnv](https://direnv.net/).
-Install both for the smoothest experience.
-
-Copy `.envrc.sample` to `.envrc` and set environment variables appropriately.
-Then run `direnv allow` so it will be evaluated when you enter this directory.
-
-You can run the server with `devbox services up`
-
-To run in the background, run `devbox services up -b` and stop with `devbox services stop`
-
-Run tests with `devbox run test`
-
-See `devbox.json` for other local dev scripts.
-
-## Open Questions
-
-* [ ] Refresh tokens?
-* [ ] Prevent spamming endpoints? (e.g. bots flooding system with spam users or publishing identities)
-
-## TODO
-
-* [ ] User Authentication API (in progress - see below)
-* [ ] Package search
-* [ ] Package docs
-    * [ ] Avoid ambiguous type names (e.g. `Task` vs `Init.Task`)
-    * [ ] Enable links to specific sections
-    * [ ] Avoid ambiguous section anchors (e.g. [focus](https://package.elm-lang.org/packages/elm/browser/latest/Browser-Dom#focus) section vs function)
-    * [ ] Package doc search
-
 ## User Authentication
 
 Goals:
@@ -87,3 +56,20 @@ Goals:
 - CLI auth loosely coupled to where you check your email.
     - email confirmation code is short and uses easily-identifiable characters
     - tokens are long UUIDs but managed by the CLI and server
+
+## Local Development
+
+This project uses [devbox](https://www.jetify.com/devbox) and [direnv](https://direnv.net/).
+Install both for the smoothest experience.
+
+Copy `.envrc.sample` to `.envrc` and set environment variables appropriately.
+Then run `direnv allow` so it will be evaluated when you enter this directory.
+
+You can run the server with `devbox services up`
+
+To run in the background, run `devbox services up -b` and stop with `devbox services stop`
+
+Run tests with `devbox run test`
+
+See `devbox.json` for other local dev scripts.
+
