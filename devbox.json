@@ -4,7 +4,8 @@
     "nodejs@20",
     "gren@0.6.3",
     "curl@latest",
-    "jq@latest"
+    "jq@latest",
+    "github:blaix/ws4sql-nix/0.17dev7"
   ],
   "shell": {
     "init_hook": [],

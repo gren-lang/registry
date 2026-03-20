@@ -128,6 +128,10 @@
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
       "resolved": "github:NixOS/nixpkgs/3549532663732bfd89993204d40543e9edaec4f2?lastModified=1742272065&narHash=sha256-ud8vcSzJsZ%2FCK%2Br8%2Fv0lyf4yUntVmDq6Z0A41ODfWbE%3D"
     },
+    "github:blaix/ws4sql-nix/0.17dev7": {
+      "last_modified": "2026-03-11T20:58:00Z",
+      "resolved": "github:blaix/ws4sql-nix/4837de181c857cdb9fa015f7fb9a018cceec8532?lastModified=1773262680&narHash=sha256-mOBI%2BWUDHjd6xf3JhlC%2BMkt2Nk8BzN20J0dZfQetHbc%3D"
+    },
     "gren@0.6.3": {
       "last_modified": "2025-09-18T16:33:27Z",
       "resolved": "github:NixOS/nixpkgs/f4b140d5b253f5e2a1ff4e5506edbf8267724bde#gren",
