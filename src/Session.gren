@@ -72,17 +72,19 @@ fetch :
     -> Task Db.Error String
 fetch { db, secureContext, fetchSessionToken, emailConfirmationCode } =
     let
-        getSession =
+        getSession cutoff =
             Db.getOne db
                 { query =
                     """
                     select id from session
                     where fetch_session_token = :fetch_session_token
                     and email_confirmation_code = :email_confirmation_code
+                    and created > :cutoff
                     """
                 , parameters =
                     [ Db.Encode.string "fetch_session_token" fetchSessionToken
                     , Db.Encode.string "email_confirmation_code" emailConfirmationCode
+                    , Db.Encode.posix "cutoff" cutoff
                     ]
                 , decoder =
                     Db.Decode.int "id"
@@ -102,7 +104,13 @@ fetch { db, secureContext, fetchSessionToken, emailConfirmationCode } =
                     ]
                 }
     in
-    Task.await getSession <| \sessionId ->
+    Task.await Time.now <| \now ->
+    let
+        fifteenMinutesAgo =
+            (Time.posixToMillis now) - (15 * 60 * 1000)
+                |> Time.millisToPosix
+    in
+    Task.await (getSession fifteenMinutesAgo) <| \sessionId ->
     Task.await (Crypto.randomUuidV4 secureContext) <| \sessionToken ->
     Task.await (setSessionToken sessionId sessionToken) <| \_ ->
         Task.succeed sessionToken

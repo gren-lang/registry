@@ -1,5 +1,6 @@
 module Test.E2E.Helper exposing
     ( createSession
+    , expireFetchToken
     , expectBadStatus
     , expectJson
     , initDb
@@ -12,6 +13,7 @@ module Test.E2E.Helper exposing
 import Bytes exposing (Bytes)
 import Crypto
 import Db
+import Db.Encode
 import Email
 import Expect exposing (Expectation)
 import HttpClient exposing (Response)
@@ -19,6 +21,7 @@ import Json.Decode
 import Json.Encode
 import Session exposing (Session)
 import Task exposing (Task)
+import Time
 import User
 
 
@@ -89,9 +92,32 @@ createSession db secureContext =
     User.findOrCreate db Email.example
         |> Task.andThen
             (\user ->
-                Session.create 
+                Session.create
                     { db = db
                     , user = user
                     , secureContext = secureContext
                     }
             )
+
+
+expireFetchToken : Db.Connection -> Session -> Task Db.Error {}
+expireFetchToken db session =
+    Task.await Time.now <| \now ->
+        let
+            sixteenMinutesAgo =
+                (Time.posixToMillis now) - (16 * 60 * 1000)
+                    |> Time.millisToPosix
+        in
+        Db.execute db
+            { statement =
+                """
+                update session
+                set created = :created
+                where fetch_session_token = :fetch_session_token
+                """
+            , parameters =
+                [ Db.Encode.posix "created" sixteenMinutesAgo
+                , Db.Encode.string "fetch_session_token" session.fetchSessionToken
+                ]
+            }
+            |> Task.map (\_ -> {})

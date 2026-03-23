@@ -13,7 +13,7 @@ import Json.Decode
 import Json.Encode
 import Task exposing (Task)
 import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test, todo)
-import Test.E2E.Helper exposing (createSession, initDb, get, post, postWithJson, expectBadStatus, expectJson)
+import Test.E2E.Helper exposing (expireFetchToken, createSession, initDb, get, post, postWithJson, expectBadStatus, expectJson)
 import User exposing (User)
 
 
@@ -154,5 +154,11 @@ tests httpPerm secureContext =
                                             expectedToken
                             )
                         ]
+
+            , await "force token to expire" (expireFetchToken db session) <| \_ ->
+              awaitError "with expired token"
+                (doPost { token = session.fetchSessionToken, code = session.emailConfirmationCode }) <| \response ->
+                    test "Responds with 400 error" <| \_ ->
+                        expectBadStatus 400 response
             ]
     ]
