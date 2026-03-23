@@ -2,6 +2,7 @@ module Test.E2E.Route.Session exposing (tests)
 
 
 import Bytes
+import Crypto
 import Db
 import Db.Encode
 import Db.Decode
@@ -11,21 +12,30 @@ import HttpClient
 import Json.Decode
 import Json.Encode
 import Task exposing (Task)
-import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test)
-import Test.E2E.Helper exposing (initDb, get, post, postWithJson, expectBadStatus, expectJson)
+import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test, todo)
+import Test.E2E.Helper exposing (expireFetchToken, createSession, initDb, get, post, postWithJson, expectBadStatus, expectJson)
 import User exposing (User)
 
 
-tests : HttpClient.Permission -> Array Test
-tests httpPerm =
+tests : HttpClient.Permission -> Crypto.SecureContext -> Array Test
+tests httpPerm secureContext =
     let
         db : Db.Connection
         db =
             initDb httpPerm
     in
+
+
+    -- GET /session (404)
+
+
     [ awaitError "GET /session" (get httpPerm "/session") <| \response ->
         test "404s" <| \_ ->
             expectBadStatus 404 response
+
+
+    -- POST /session (create)
+
 
     , describe "Create session" <|
         let
@@ -83,4 +93,77 @@ tests httpPerm =
                     )
                 ]
         ]
+
+
+    -- POST /session/fetch (get session token)
+
+
+    , await "Create test session" (createSession db secureContext) <| \session ->
+        describe "Fetch session token" <|
+            let
+                doPost { token, code } =
+                    postWithJson httpPerm "/session/fetch" <|
+                        Json.Encode.object
+                            [ { key = "fetchSessionToken"
+                              , value = Json.Encode.string token
+                              }
+                            , { key = "emailConfirmationCode"
+                              , value = Json.Encode.string code
+                              }
+                            ]
+            in
+            [ awaitError "with bad token and code"
+                (doPost { token = "", code = "" }) <| \response -> 
+                    test "Responds with 400 error" <| \_ ->
+                        expectBadStatus 400 response
+
+            , awaitError "with good token and bad code"
+                (doPost { token = session.fetchSessionToken, code = "" }) <| \response ->
+                    test "Responds with 400 error" <| \_ ->
+                        expectBadStatus 400 response
+
+            , awaitError "with bad token and good code"
+                (doPost { token = "", code = session.emailConfirmationCode }) <| \response ->
+                    test "Responds with 400 error" <| \_ ->
+                        expectBadStatus 400 response
+
+            , await "with good token and good code"
+                (doPost { token = session.fetchSessionToken, code = session.emailConfirmationCode }) <| \response ->
+                    concat
+                        [ test "Responds successfully" <| \_ ->
+                            Expect.equal 200 response.statusCode
+
+                        , await "Getting session token from db"
+                            (Db.getOne db
+                                { query =
+                                    """
+                                    select token from session
+                                    where fetch_session_token = :fetch_session_token
+                                    """
+                                , parameters =
+                                    [ Db.Encode.string "fetch_session_token" session.fetchSessionToken ]
+                                , decoder =
+                                    Db.Decode.string "token"
+                                }
+                            )
+                            (\expectedToken ->
+                                test "responds with session token" <| \_ ->
+                                    response.data
+                                        |> expectJson
+                                            (Json.Decode.field "sessionToken" Json.Decode.string)
+                                            expectedToken
+                            )
+
+                        , awaitError "Trying to fetch it again"
+                            (doPost { token = session.fetchSessionToken, code = session.emailConfirmationCode }) <| \secondResponse ->
+                                test "Responds with a 400 error" <| \_ ->
+                                    expectBadStatus 400 secondResponse
+                        ]
+
+            , await "force token to expire" (expireFetchToken db session) <| \_ ->
+              awaitError "with expired token"
+                (doPost { token = session.fetchSessionToken, code = session.emailConfirmationCode }) <| \response ->
+                    test "Responds with 400 error" <| \_ ->
+                        expectBadStatus 400 response
+            ]
     ]

@@ -1,6 +1,7 @@
 module Session exposing
     ( Session
     , create
+    , fetch
     )
 
 
@@ -16,11 +17,17 @@ import Time
 import User exposing (User)
 
 
+{-| Create a Session.
+
+It will not have a usable token until you call `fetch` with a valid
+fetchSessionToken and emailConfirmationCode.
+-}
 type alias Session =
     { created : Time.Posix
     , user : User
     , emailConfirmationCode : String
     , fetchSessionToken : String
+    , token: Maybe String
     }
 
 
@@ -39,6 +46,7 @@ create { db, user, secureContext } =
             , user = user
             , emailConfirmationCode = code
             , fetchSessionToken = uuid2
+            , token = Nothing
             }
 
 
@@ -58,6 +66,66 @@ generateEmailConfirmationCode secureContext =
                     |> String.replace "1" "L"
                     |> String.replace "0" "P"
             )
+
+
+{-| Fetch the long-lived session token.
+
+You must pass the fetchSessionToken and emailConfirmationCode from the `create`
+step. Creates and returns the long-lived session token. To keep
+fetchSessionToken single-use, this will error if session token already exists.
+-}
+fetch :
+    { db : Db.Connection
+    , secureContext : Crypto.SecureContext
+    , fetchSessionToken : String
+    , emailConfirmationCode : String
+    }
+    -> Task Db.Error String
+fetch { db, secureContext, fetchSessionToken, emailConfirmationCode } =
+    let
+        getSession cutoff =
+            Db.getOne db
+                { query =
+                    """
+                    select id from session
+                    where fetch_session_token = :fetch_session_token
+                    and email_confirmation_code = :email_confirmation_code
+                    and created > :cutoff
+                    and token is null
+                    """
+                , parameters =
+                    [ Db.Encode.string "fetch_session_token" fetchSessionToken
+                    , Db.Encode.string "email_confirmation_code" emailConfirmationCode
+                    , Db.Encode.posix "cutoff" cutoff
+                    ]
+                , decoder =
+                    Db.Decode.int "id"
+                }
+
+        setSessionToken id sessionToken =
+            Db.execute db
+                { statement =
+                    """
+                    update session
+                    set token = :token
+                    where id = :id
+                    """
+                , parameters =
+                    [ Db.Encode.string "token" sessionToken
+                    , Db.Encode.int "id" id
+                    ]
+                }
+    in
+    Task.await Time.now <| \now ->
+    let
+        fifteenMinutesAgo =
+            (Time.posixToMillis now) - (15 * 60 * 1000)
+                |> Time.millisToPosix
+    in
+    Task.await (getSession fifteenMinutesAgo) <| \sessionId ->
+    Task.await (Crypto.randomUuidV4 secureContext) <| \sessionToken ->
+    Task.await (setSessionToken sessionId sessionToken) <| \_ ->
+        Task.succeed sessionToken
 
 
 -- DB HELPERS

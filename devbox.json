@@ -5,7 +5,8 @@
     "gren@0.6.3",
     "curl@latest",
     "jq@latest",
-    "github:blaix/ws4sql-nix/0.17dev7"
+    "github:blaix/ws4sql-nix/0.17dev7",
+    "sqlite@latest"
   ],
   "shell": {
     "init_hook": [],
@@ -15,6 +16,9 @@
       ],
       "create-session": [
         "./scripts/create-session.sh \"$@\""
+      ],
+      "fetch-session": [
+        "./scripts/fetch-session.sh \"$@\""
       ]
     }
   }
