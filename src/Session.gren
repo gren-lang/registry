@@ -17,6 +17,11 @@ import Time
 import User exposing (User)
 
 
+{-| Create a Session.
+
+It will not have a usable token until you call `fetch` with a valid
+fetchSessionToken and emailConfirmationCode.
+-}
 type alias Session =
     { created : Time.Posix
     , user : User
@@ -63,6 +68,12 @@ generateEmailConfirmationCode secureContext =
             )
 
 
+{-| Fetch the long-lived session token.
+
+You must pass the fetchSessionToken and emailConfirmationCode from the `create`
+step. Creates and returns the long-lived session token. To keep
+fetchSessionToken single-use, this will error if session token already exists.
+-}
 fetch :
     { db : Db.Connection
     , secureContext : Crypto.SecureContext
@@ -80,6 +91,7 @@ fetch { db, secureContext, fetchSessionToken, emailConfirmationCode } =
                     where fetch_session_token = :fetch_session_token
                     and email_confirmation_code = :email_confirmation_code
                     and created > :cutoff
+                    and token is null
                     """
                 , parameters =
                     [ Db.Encode.string "fetch_session_token" fetchSessionToken

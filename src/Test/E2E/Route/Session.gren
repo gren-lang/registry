@@ -153,6 +153,11 @@ tests httpPerm secureContext =
                                             (Json.Decode.field "sessionToken" Json.Decode.string)
                                             expectedToken
                             )
+
+                        , awaitError "Trying to fetch it again"
+                            (doPost { token = session.fetchSessionToken, code = session.emailConfirmationCode }) <| \secondResponse ->
+                                test "Responds with a 400 error" <| \_ ->
+                                    expectBadStatus 400 secondResponse
                         ]
 
             , await "force token to expire" (expireFetchToken db session) <| \_ ->
