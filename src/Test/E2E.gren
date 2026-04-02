@@ -1,6 +1,7 @@
 module Test.E2E exposing (tests)
 
 import Crypto
+import Db
 import Dict
 import Expect
 import HttpClient
@@ -9,7 +10,9 @@ import Task
 import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test)
 import Test.E2E.Helper exposing (get, expectBadStatus, initDb)
 import Test.E2E.Route.Session
+import Test.E2E.Route.PublishingIdentity
 import Test.E2E.Postmark
+import Test.E2E.PublishingIdentity
 import Test.E2E.Session
 import Test.E2E.User
 
@@ -17,6 +20,7 @@ import Test.E2E.User
 tests : HttpClient.Permission -> Array Test
 tests httpPerm =
     let
+        db : Db.Connection
         db =
             initDb httpPerm
 
@@ -28,15 +32,23 @@ tests httpPerm =
     in
     [ await "Get secure context" Crypto.getSecureContext <| \secureContext ->
         concat
-            [ describe "Session route tests" (Test.E2E.Route.Session.tests httpPerm secureContext)
-            , describe "Session module tests" (Test.E2E.Session.tests db secureContext)
-            , describe "User module tests" (Test.E2E.User.tests db)
-            , describe "Postmark module tests" (Test.E2E.Postmark.tests postmark)
+            
+            -- ROUTES
+
+            [ describe "Session route tests" (Test.E2E.Route.Session.tests db httpPerm secureContext)
+            , describe "PublishingIdentity route tests" (Test.E2E.Route.PublishingIdentity.tests db httpPerm secureContext)
             , describe "Home route tests"
                 -- There is no Home route yet
                 [ awaitError "GET /" (get httpPerm "/") <| \response ->
                     test "404s" <| \_ ->
                         expectBadStatus 404 response
                 ]
+
+            -- MODULES
+
+            , describe "Session module tests" (Test.E2E.Session.tests db secureContext)
+            , describe "User module tests" (Test.E2E.User.tests db)
+            , describe "Postmark module tests" (Test.E2E.Postmark.tests postmark)
+            , describe "PublishingIdentity module tests" (Test.E2E.PublishingIdentity.tests db)
             ]
     ]

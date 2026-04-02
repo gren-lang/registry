@@ -1,0 +1,117 @@
+module Test.E2E.Route.PublishingIdentity exposing (tests)
+
+
+import Crypto
+import Bytes exposing (Bytes)
+import Db
+import Db.Encode
+import Db.Decode
+import Expect
+import HttpClient
+import Json.Decode
+import Json.Encode
+import PublishingIdentity exposing (PublishingIdentity)
+import Session exposing (Session)
+import Task exposing (Task)
+import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test, todo)
+import Test.E2E.Helper exposing (createSession, initDb, get, post, postWithJson, expectBadStatus, expectJson)
+import User exposing (User)
+
+
+tests : Db.Connection -> HttpClient.Permission -> Crypto.SecureContext -> Array Test
+tests db httpPerm secureContext =
+    let
+        cleanPublishingIdentity : Task Db.Error Int
+        cleanPublishingIdentity =
+            Db.transaction db
+                [ { statement = "DELETE FROM publishing_identity_users", parameters = [] }
+                , { statement = "DELETE FROM publishing_identity", parameters = [] }
+                ]
+                |> Task.map (\_ -> 0)
+
+        fetchSessionToken : Session -> Task Db.Error String
+        fetchSessionToken session =
+            Session.fetch
+                { db = db
+                , secureContext = secureContext
+                , fetchSessionToken = session.fetchSessionToken
+                , emailConfirmationCode = session.emailConfirmationCode
+                }
+
+        doPost :
+            { sessionToken : Maybe String, name : String }
+            -> Task HttpClient.Error (HttpClient.Response Bytes)
+        doPost { sessionToken, name } =
+            let
+                tokenField =
+                    when sessionToken is
+                        Just token -> 
+                            [ { key = "session"
+                              , value = Json.Encode.string token
+                              }
+                            ]
+
+                        Nothing ->
+                            []
+            in
+            postWithJson httpPerm "/publishing-identity" <|
+                Json.Encode.object <|
+                    [ { key = "name"
+                      , value = Json.Encode.string name
+                      }
+                    ] ++ tokenField
+    in
+
+
+    -- GET /publishing-identity (404)
+
+
+    [ awaitError "GET /publishing-identity" 
+        (get httpPerm "/publishing-identity") <| \response ->
+            test "404s" <| \_ ->
+                expectBadStatus 404 response
+
+
+    -- POST /publishing-identity (create)
+
+
+    , awaitError "POST /publishing-identity with no session token" 
+        (doPost { sessionToken = Nothing, name = "my-publishing-identity" }) <| \response ->
+            test "Responds with 400 error" <| \_ ->
+                expectBadStatus 400 response
+
+    , awaitError "POST /publishing-identity with empty session token"
+        (doPost { sessionToken = Just "", name = "my-publishing-identity" }) <| \response ->
+            test "Responds with 400 error" <| \_ ->
+                expectBadStatus 400 response
+
+    , awaitError "POST /publishing-identity with bad session token"
+        (doPost { sessionToken = Just "nope!", name = "my-publishing-identity" }) <| \response ->
+            test "Responds with 400 error" <| \_ ->
+                expectBadStatus 400 response
+
+    , await "clean publishing identity tables" cleanPublishingIdentity <| \_ ->
+      await "create a session" (createSession db secureContext)  <| \session ->
+      await "fetch session token" (fetchSessionToken session) <| \token ->
+      await "POST /publishing-identity with valid session token"
+        (doPost { sessionToken = Just token, name = "my-publishing-identity" }) <| \response ->
+            concat
+                [ test "Responds with 200" <| \_ ->
+                    Expect.equal 200 response.statusCode
+
+                , await "find created publishing identity"
+                    ( PublishingIdentity.get db
+                        { userId = session.user.id
+                        , name = "my-publishing-identity"
+                        }
+                    ) <| \publishingIdentity ->
+                        test "Creates publishing identity for the user." <| \_ ->
+                            { name = "my-publishing-identity"
+                            , userId = session.user.id
+                            }
+                                |> Expect.equal
+                                    { name = publishingIdentity.name
+                                    , userId = publishingIdentity.userId
+                                    }
+                ]
+    ]

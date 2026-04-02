@@ -3,6 +3,7 @@ module Email exposing
     , fromString
     , toString
     , example
+    , example2
     )
 
 
@@ -39,3 +40,10 @@ toString (Email emailString) =
 example : Email
 example =
     Email "test@blackhole.postmarkapp.com"
+
+
+{-| Second example email used for testing.
+-}
+example2 : Email
+example2 =
+    Email "test2@blackhole.postmarkapp.com"

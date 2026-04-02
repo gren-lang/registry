@@ -1,0 +1,81 @@
+module Route.PublishingIdentity exposing
+    ( create
+    )
+
+
+import Bytes exposing (Bytes)
+import Db
+import HttpServer.Response as Response exposing (Response)
+import Json.Decode
+import PublishingIdentity
+import Route.Error
+import Task exposing (Task)
+import User exposing (User)
+
+
+-- ENDPOINTS
+
+
+create :
+    { db : Db.Connection
+    , body : Bytes
+    , response : Response
+    }
+    -> Task Never Response
+create { db, body, response } =
+    when getCreateRequest body is
+        Nothing ->
+            Route.Error.invalidRequestData response
+                "Request json must contain a non-empty `session` and `name` field."
+
+        Just { sessionToken, name } ->
+            -- TODO: move user fetch to routing level
+            User.findBySessionToken db sessionToken
+                |> Task.andThen (\user ->
+                    PublishingIdentity.create db { user = user, name = name }
+                )
+                |> Task.map (\_ -> response)
+                |> Task.onError (\_ ->
+                    Route.Error.invalidRequestData response
+                        "Invalid session token."
+                )
+
+
+-- REQUEST PARSING
+
+
+type alias CreateRequest =
+    { sessionToken : String
+    , name : String
+    }
+
+
+getCreateRequest : Bytes -> Maybe CreateRequest
+getCreateRequest bytes =
+    bytes
+        |> Bytes.toString
+        |> Maybe.andThen decodeCreateRequest
+        |> Maybe.andThen validateCreateRequest
+
+
+decodeCreateRequest : String -> Maybe CreateRequest
+decodeCreateRequest json =
+    json
+        |> Json.Decode.decodeString createRequestDecoder
+        |> Result.toMaybe
+
+
+createRequestDecoder : Json.Decode.Decoder CreateRequest
+createRequestDecoder =
+    Json.Decode.map2
+        (\token name -> { sessionToken = token, name = name })
+        (Json.Decode.field "session" Json.Decode.string)
+        (Json.Decode.field "name" Json.Decode.string)
+
+
+validateCreateRequest : CreateRequest -> Maybe CreateRequest
+validateCreateRequest request =
+    if String.isEmpty request.sessionToken || String.isEmpty request.name then
+        Nothing
+    else
+        Just request
