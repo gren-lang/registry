@@ -1,6 +1,7 @@
 module User exposing
     ( User
     , decoder
+    , findBySessionToken
     , findOrCreate
     )
 
@@ -40,6 +41,21 @@ decoder =
                                 }
                             )
             )
+
+
+findBySessionToken : Db.Connection -> String -> Task Db.Error User
+findBySessionToken db sessionToken =
+    Db.getOne db
+        { query =
+            """
+            SELECT user.id, user.email, user.created
+            FROM user
+            INNER JOIN session ON session.user_id = user.id
+            WHERE session.token = :token
+            """
+        , parameters = [ Encode.string "token" sessionToken ]
+        , decoder = decoder
+        }
 
 
 findOrCreate : Db.Connection -> Email -> Task Db.Error User

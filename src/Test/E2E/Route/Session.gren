@@ -17,13 +17,8 @@ import Test.E2E.Helper exposing (expireFetchToken, createSession, initDb, get, p
 import User exposing (User)
 
 
-tests : HttpClient.Permission -> Crypto.SecureContext -> Array Test
-tests httpPerm secureContext =
-    let
-        db : Db.Connection
-        db =
-            initDb httpPerm
-    in
+tests : Db.Connection -> HttpClient.Permission -> Crypto.SecureContext -> Array Test
+tests db httpPerm secureContext =
 
 
     -- GET /session (404)

@@ -1,0 +1,110 @@
+module PublishingIdentity exposing
+    ( PublishingIdentity
+    , create
+    , get
+    )
+
+
+import Db
+import Db.Decode as Decode
+import Db.Encode as Encode
+import Task exposing (Task)
+import User exposing (User)
+
+
+type alias PublishingIdentity =
+    { id : Int
+    , userId : Int
+    , name : String
+    }
+
+
+create :
+    Db.Connection
+    -> { user : User, name : String }
+    -> Task Db.Error PublishingIdentity
+create db { user, name } =
+    let
+        insertIdentity =
+            Db.execute db
+                { statement =
+                    """
+                    INSERT INTO publishing_identity (name)
+                    VALUES (:name)
+                    """
+                , parameters =
+                    [ Encode.string "name" name
+                    ]
+                }
+
+        getIdentityId =
+            Db.getOne db
+                { query =
+                    """
+                    SELECT id FROM publishing_identity
+                    WHERE name = :name
+                    """
+                , parameters =
+                    [ Encode.string "name" name
+                    ]
+                , decoder = Decode.int "id"
+                }
+
+        insertUserLink identityId =
+            Db.execute db
+                { statement =
+                    """
+                    INSERT INTO publishing_identity_users (user_id, publishing_identity_id)
+                    VALUES (:user_id, :publishing_identity_id)
+                    """
+                , parameters =
+                    [ Encode.int "user_id" user.id
+                    , Encode.int "publishing_identity_id" identityId
+                    ]
+                }
+    in
+    insertIdentity
+        |> Task.andThen (\_ -> getIdentityId)
+        |> Task.andThen (\identityId ->
+            insertUserLink identityId
+                |> Task.map (\_ ->
+                    { id = identityId
+                    , userId = user.id
+                    , name = name
+                    }
+                )
+        )
+
+
+get :
+    Db.Connection
+    -> { userId : Int, name : String }
+    -> Task Db.Error PublishingIdentity
+get db { userId, name } =
+    Db.getOne db
+        { query =
+            """
+            SELECT pi.id, pi.name, piu.user_id
+            FROM publishing_identity pi
+            INNER JOIN publishing_identity_users piu
+                ON piu.publishing_identity_id = pi.id
+            WHERE piu.user_id = :user_id
+            AND pi.name = :name
+            """
+        , parameters =
+            [ Encode.int "user_id" userId
+            , Encode.string "name" name
+            ]
+        , decoder =
+            -- TODO: upgrade gren-ws4sql for the new api here
+            Decode.get3
+                (Decode.int "id")
+                (Decode.int "user_id")
+                (Decode.string "name")
+                (\id uid n ->
+                    { id = id
+                    , userId = uid
+                    , name = n
+                    }
+                )
+        }

@@ -13,10 +13,12 @@ import Node exposing (Environment, Program)
 import Postmark
 import Registry.Db
 import Route.Error
+import Route.PublishingIdentity
 import Route.Session
 import Stream
 import Task exposing (Task)
 import Test.E2E.Helper as Helper
+import User exposing (User)
 
 
 main : Program Model Msg
@@ -170,11 +172,16 @@ update msg model =
 route : Model -> Request -> Response -> Task Never Response
 route model request response =
     let
+        path : Array String
         path =
             request.url.path
                 |> String.split "/"
                 |> Array.keepIf (\s -> s /= "")
 
+        config :
+            { secureContext : Maybe Crypto.SecureContext
+            , postmark : Maybe Postmark.Configuration
+            }
         config =
             { secureContext = model.secureContext
             , postmark = model.postmark
@@ -212,6 +219,17 @@ route model request response =
                     Route.Session.fetch
                         { db = model.db
                         , secureContext = secureContext
+                        , body = request.body
+                        , response = response
+                        }
+
+
+                -- PUBLISHING IDENTITY ROUTES
+
+
+                { method = POST, path = [ "publishing-identity" ] } ->
+                    Route.PublishingIdentity.create
+                        { db = model.db
                         , body = request.body
                         , response = response
                         }

@@ -1,0 +1,57 @@
+module Test.E2E.PublishingIdentity exposing (tests)
+
+
+import Db
+import Email
+import Expect
+import PublishingIdentity
+import Task exposing (Task)
+import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test)
+import User exposing (User)
+
+
+tests : Db.Connection -> Array Test
+tests db =
+    let
+        identityName =
+            "duplicate-name-test"
+
+        cleanPublishingIdentity : Task Db.Error Int
+        cleanPublishingIdentity =
+            Db.transaction db
+                [ { statement = "DELETE FROM publishing_identity_users", parameters = [] }
+                , { statement = "DELETE FROM publishing_identity", parameters = [] }
+                ]
+                |> Task.map (\_ -> 0)
+    in
+    [ describe "PublishingIdentity.create"
+        [ await "clean publishing identity tables" cleanPublishingIdentity <| \_ ->
+          await "create user 1" (User.findOrCreate db Email.example) <| \user1 ->
+          await "create user 2" (User.findOrCreate db Email.example2) <| \user2 ->
+          await "create identity for user 1" (PublishingIdentity.create db { user = user1, name = identityName }) <| \_ ->
+            concat
+                [ awaitError "create identity with same name and same user"
+                    (PublishingIdentity.create db { user = user1, name = identityName }) <| \error ->
+                        test "fails when name already exists for same user" <| \_ ->
+                            expectUniqueConstraintError error
+
+                , awaitError "create identity with same name and different user"
+                    (PublishingIdentity.create db { user = user2, name = identityName }) <| \error ->
+                        test "fails when name already exists for different user" <| \_ ->
+                            expectUniqueConstraintError error
+                ]
+        ]
+    ]
+
+
+expectUniqueConstraintError : Db.Error -> Expect.Expectation
+expectUniqueConstraintError error =
+    when error is
+        Db.Error message ->
+            if String.contains "unique" (String.toLower message) then
+                Expect.pass
+            else
+                Expect.fail ("Expected unique constraint error, got: " ++ message)
+
+        _ ->
+            Expect.fail ("Expected Db.Error with unique constraint message, got: " ++ Db.errorToString error)
