@@ -10,11 +10,12 @@ import Db
 import Email exposing (Email)
 import HttpClient
 import HttpServer exposing (Request)
-import HttpServer.Response as Response exposing (Response)
+import Log
 import Postmark
 import Route.Error
 import Json.Decode
 import Json.Encode
+import Route exposing (Response)
 import Session exposing (Session)
 import Task exposing (Task)
 import User exposing (User)
@@ -177,25 +178,35 @@ createSuccess response session =
                 ]
     in
     response
-        |> Response.setHeader "Content-Type" "application/json"
-        |> Response.setBody (Json.Encode.encode 0 responseJson)
+        |> Route.setHeader "Content-Type" "application/json"
+        |> Route.setBody (Json.Encode.encode 0 responseJson)
 
 
 createFailed : Response -> Error -> Task x Response
 createFailed response error =
     when error is
         DbError e ->
-            -- TODO: log the actual error
+            let
+                errorMsg =
+                    "Database error creating session: " ++
+                    Db.errorToString e
+            in
             response
-                |> Response.setStatus 500
+                |> Route.log (Log.Error errorMsg)
+                |> Route.setStatus 500
                 |> setErrorMessage "Database error"
                 |> Task.succeed
 
 
         SendEmailFailed e ->
-            -- TODO: log the actual error
+            let
+                errorMsg =
+                    "Failed to send new session email: " ++
+                    HttpClient.errorToString e
+            in
             response
-                |> Response.setStatus 500
+                |> Route.log (Log.Error errorMsg)
+                |> Route.setStatus 500
                 |> setErrorMessage "Failed to send email"
                 |> Task.succeed
 
@@ -211,8 +222,8 @@ fetchSuccess response sessionToken =
                 ]
     in
     response
-        |> Response.setHeader "Content-Type" "application/json"
-        |> Response.setBody (Json.Encode.encode 0 responseJson)
+        |> Route.setHeader "Content-Type" "application/json"
+        |> Route.setBody (Json.Encode.encode 0 responseJson)
 
 
 fetchFailed : Response -> Error -> Task x Response
@@ -220,21 +231,32 @@ fetchFailed response error =
     when error is
         DbError Db.NoResultError ->
             response
-                |> Response.setStatus 400
+                |> Route.setStatus 400
                 |> setErrorMessage "Invalid token or confirmation code"
                 |> Task.succeed
 
-        DbError _ ->
+        DbError e ->
+            let
+                errorMsg =
+                    "Error fetching session from DB: " ++
+                    Db.errorToString e
+            in
             response
-                -- TODO: server error logging
-                |> Response.setStatus 500
+                |> Route.log (Log.Error errorMsg)
+                |> Route.setStatus 500
                 |> setErrorMessage "Unexpected DB error"
                 |> Task.succeed
 
-        SendEmailFailed _ ->
+        SendEmailFailed e ->
+            let
+                errorMsg =
+                    "Reached unexpected error state: " ++
+                    "Send email failed while fetching session? Error: " ++
+                    HttpClient.errorToString e
+            in
             response
-                -- TODO: server error logging
-                |> Response.setStatus 500
+                |> Route.log (Log.Error errorMsg)
+                |> Route.setStatus 500
                 |> setErrorMessage "Unexpected error"
                 |> Task.succeed
 
@@ -250,5 +272,5 @@ setErrorMessage message response =
                 [ { key = "message", value = Json.Encode.string message } ]
     in
     response
-        |> Response.setHeader "Content-Type" "application/json"
-        |> Response.setBody (Json.Encode.encode 0 body)
+        |> Route.setHeader "Content-Type" "application/json"
+        |> Route.setBody (Json.Encode.encode 0 body)
