@@ -7,6 +7,9 @@ make dist/app || exit 1
 devbox services up -b && \
 npx -y wait-on tcp:3000 -t 5s && \
 make test
+test_exit=$?
 
 # shutdown backgrounded app
 devbox services stop
+
+exit $test_exit
