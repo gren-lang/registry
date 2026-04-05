@@ -5,30 +5,30 @@ module Route.Error exposing
     )
 
 
-import HttpServer.Response as Response exposing (Response)
+import Route
 import Task exposing (Task)
 
 
-notFound : Response -> Task Never Response
+notFound : Route.Response -> Task Never Route.Response
 notFound response =
     response
-        |> Response.setStatus 404
-        |> Response.setBody "not found"
+        |> Route.setStatus 404
+        |> Route.setBody "not found"
         |> Task.succeed
 
 
-invalidRequestData : Response -> String -> Task Never Response
+invalidRequestData : Route.Response -> String -> Task Never Route.Response
 invalidRequestData response message =
     response
-        |> Response.setStatus 400
-        |> Response.setBody message
+        |> Route.setStatus 400
+        |> Route.setBody message
         |> Task.succeed
 
 
-serverError : Response -> String -> Task Never Response
+serverError : Route.Response -> String -> Task Never Route.Response
 serverError response message =
     response
-        |> Response.setStatus 500
-        |> Response.setBody message
+        |> Route.setStatus 500
+        |> Route.setBody message
         |> Task.succeed
 

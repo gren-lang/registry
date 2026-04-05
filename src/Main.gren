@@ -12,6 +12,7 @@ import Init
 import Node exposing (Environment, Program)
 import Postmark
 import Registry.Db
+import Route
 import Route.Error
 import Route.PublishingIdentity
 import Route.Session
@@ -98,7 +99,7 @@ type Msg
     | DbMigrationResult (Result Db.Error (Array Int))
     | SecureContextResult (Result {} Crypto.SecureContext)
     | GotRequest { request : HttpServer.Request, response : Response }
-    | ResponseReady Response
+    | ResponseReady Route.Response
 
 
 update : Msg -> Model -> { model : Model, command : Cmd Msg }
@@ -158,18 +159,24 @@ update msg model =
         GotRequest { request, response } ->
             { model = model
             , command =
-                route model request response
+                response
+                    |> Route.initResponse
+                    |> route model request
                     |> Task.perform ResponseReady
             }
 
         ResponseReady response ->
             { model = model
             , command =
-                Response.send response
+                Route.respond 
+                    { response = response
+                    , stdout = model.stdout
+                    , stderr = model.stderr
+                    }
             }
 
 
-route : Model -> Request -> Response -> Task Never Response
+route : Model -> Request -> Route.Response -> Task Never Route.Response
 route model request response =
     let
         path : Array String

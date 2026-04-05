@@ -1,0 +1,8 @@
+module Log exposing
+    ( Level(..)
+    )
+
+
+type Level
+    = Info String
+    | Error String

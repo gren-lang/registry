@@ -5,9 +5,9 @@ module Route.PublishingIdentity exposing
 
 import Bytes exposing (Bytes)
 import Db
-import HttpServer.Response as Response exposing (Response)
 import Json.Decode
 import PublishingIdentity
+import Route exposing (Response)
 import Route.Error
 import Task exposing (Task)
 import User exposing (User)

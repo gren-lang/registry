@@ -1,0 +1,93 @@
+module Route exposing
+    ( Response
+    , initResponse
+    , log
+    , respond
+    , setStatus
+    , setBody
+    , setHeader
+    )
+
+
+import Bytes exposing (Bytes)
+import HttpServer.Response as HttpResponse
+import Log exposing (Level(..))
+import Stream
+import Stream.Log
+import Task
+
+
+type Response =
+    Response
+        { log : Array Log.Level
+        , response : HttpResponse.Response
+        }
+
+
+initResponse : HttpResponse.Response -> Response
+initResponse httpResponse =
+    Response
+        { log = []
+        , response = httpResponse
+        }
+
+
+log : Log.Level -> Response -> Response
+log message (Response res) =
+    Response
+        { res
+            | log =
+                res.log
+                    |> Array.pushLast message
+        }
+
+
+setStatus : Int -> Response -> Response
+setStatus status (Response res) =
+    Response
+        { res
+            | response =
+                res.response
+                    |> HttpResponse.setStatus status
+        }
+
+
+setBody : String -> Response -> Response
+setBody body (Response res) =
+    Response
+        { res
+            | response =
+                res.response
+                    |> HttpResponse.setBody body
+        }
+
+
+setHeader : String -> String -> Response -> Response
+setHeader name value (Response res) =
+    Response
+        { res
+            | response =
+                res.response
+                    |> HttpResponse.setHeader name value
+        }
+
+
+respond :
+    { response : Response
+    , stdout : Stream.Writable Bytes
+    , stderr : Stream.Writable Bytes
+    }
+    -> Cmd msg
+respond { response = (Response res), stdout = stdout, stderr = stderr } =
+    let
+        writeLog level =
+            when level is
+                Info string -> Stream.Log.line stdout string
+                Error string -> Stream.Log.line stderr string
+    in
+    res.log
+        |> Array.map writeLog
+        |> Array.map Task.execute
+        |> Array.pushLast (HttpResponse.send res.response)
+        |> Cmd.batch
+            
