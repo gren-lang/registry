@@ -84,10 +84,15 @@ respond { response = (Response res), stdout = stdout, stderr = stderr } =
             when level is
                 Info string -> Stream.Log.line stdout string
                 Error string -> Stream.Log.line stderr string
+
+        sendLogs =
+            res.log
+                |> Array.map writeLog
+                |> Task.sequence
+                |> Task.execute
     in
-    res.log
-        |> Array.map writeLog
-        |> Array.map Task.execute
-        |> Array.pushLast (HttpResponse.send res.response)
-        |> Cmd.batch
+    Cmd.batch
+        [ sendLogs
+        , HttpResponse.send res.response
+        ]
             
