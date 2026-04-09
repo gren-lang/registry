@@ -23,24 +23,19 @@ type alias User =
 
 decoder : Decoder User
 decoder =
-    Decode.string "email"
-        |> Decode.andThen
-            (\email ->
-                when (Email.fromString email) is
-                    Nothing ->
-                        Decode.fail ("Invalid email: " ++ email)
-                    
-                    Just e ->
-                        Decode.get2
-                            (Decode.int "id")
-                            (Decode.posix "created")
-                            (\id created ->
-                                { id = id
-                                , created = created
-                                , email = e
-                                }
-                            )
-            )
+    Decode.field Decode.string "email" <| \email ->
+        when (Email.fromString email) is
+            Nothing ->
+                Decode.fail ("Invalid email: " ++ email)
+            
+            Just e ->
+                Decode.field Decode.int "id" <| \id ->
+                Decode.field Decode.posix "created" <| \created ->
+                    Decode.succeed
+                        { id = id
+                        , created = created
+                        , email = e
+                        }
 
 
 findBySessionToken : Db.Connection -> String -> Task Db.Error User

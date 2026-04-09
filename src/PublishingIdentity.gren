@@ -96,15 +96,12 @@ get db { userId, name } =
             , Encode.string "name" name
             ]
         , decoder =
-            -- TODO: upgrade gren-ws4sql for the new api here
-            Decode.get3
-                (Decode.int "id")
-                (Decode.int "user_id")
-                (Decode.string "name")
-                (\id uid n ->
+            Decode.field Decode.int "id" <| \id ->
+            Decode.field Decode.int "user_id" <| \uid ->
+            Decode.field Decode.string "name" <| \n ->
+                Decode.succeed
                     { id = id
                     , userId = uid
                     , name = n
                     }
-                )
         }
