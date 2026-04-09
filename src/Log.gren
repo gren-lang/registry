@@ -1,8 +1,67 @@
 module Log exposing
     ( Level(..)
+    , timestamp
     )
+
+import Time
 
 
 type Level
     = Info String
     | Error String
+
+
+{-| Convert a Time.Posix value to an ISO 8601 string in UTC.
+    Example output: "2026-04-06T14:30:00.000Z"
+-}
+timestamp : Time.Posix -> String
+timestamp posix =
+    let
+        zone = Time.utc
+        year = Time.toYear zone posix
+        month = Time.toMonth zone posix |> monthToInt
+        day = Time.toDay zone posix
+        hour = Time.toHour zone posix
+        minute = Time.toMinute zone posix
+        second = Time.toSecond zone posix
+        millis = Time.toMillis zone posix
+    in
+    pad 4 year
+        ++ "-"
+        ++ pad 2 month
+        ++ "-"
+        ++ pad 2 day
+        ++ "T"
+        ++ pad 2 hour
+        ++ ":"
+        ++ pad 2 minute
+        ++ ":"
+        ++ pad 2 second
+        ++ "."
+        ++ pad 3 millis
+        ++ "Z"
+
+
+-- Internal helpers
+
+
+pad : Int -> Int -> String
+pad width n =
+    String.padLeft width '0' (String.fromInt n)
+
+
+monthToInt : Time.Month -> Int
+monthToInt month =
+    when month is
+        Time.Jan -> 1
+        Time.Feb -> 2
+        Time.Mar -> 3
+        Time.Apr -> 4
+        Time.May -> 5
+        Time.Jun -> 6
+        Time.Jul -> 7
+        Time.Aug -> 8
+        Time.Sep -> 9
+        Time.Oct -> 10
+        Time.Nov -> 11
+        Time.Dec -> 12

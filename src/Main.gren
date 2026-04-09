@@ -9,6 +9,7 @@ import HttpClient
 import HttpServer exposing (Request, ServerError(..), Method(..))
 import HttpServer.Response as Response exposing (Response)
 import Init
+import Log
 import Node exposing (Environment, Program)
 import Postmark
 import Registry.Db
@@ -19,6 +20,8 @@ import Route.Session
 import Stream
 import Task exposing (Task)
 import Test.E2E.Helper as Helper
+import Time
+import Url
 import User exposing (User)
 
 
@@ -161,7 +164,8 @@ update msg model =
             , command =
                 response
                     |> Route.initResponse
-                    |> route model request
+                    |> logRequest request
+                    |> Task.andThen (route model request)
                     |> Task.perform ResponseReady
             }
 
@@ -174,6 +178,28 @@ update msg model =
                     , stderr = model.stderr
                     }
             }
+
+logRequest : Request -> Route.Response -> Task Never Route.Response
+logRequest request response =
+    let
+        method =
+            when request.method is
+                GET -> "GET"
+                HEAD -> "HEAD"
+                POST -> "POST"
+                PUT -> "PUT"
+                DELETE -> "DELETE"
+                CONNECT -> "CONNECT"
+                TRACE -> "TRACE"
+                PATCH -> "PATCH"
+                UNKNOWN str -> "UNKNOWN (" ++ str ++ ")"
+
+        url =
+            method ++ " " ++ Url.toString request.url
+    in
+    Task.await Time.now <| \now ->
+        Task.succeed <|
+            Route.log (Log.Info (Log.timestamp now ++ " " ++ url)) response
 
 
 route : Model -> Request -> Route.Response -> Task Never Route.Response
