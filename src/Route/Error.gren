@@ -5,6 +5,7 @@ module Route.Error exposing
     )
 
 
+import Log
 import Route
 import Task exposing (Task)
 
@@ -28,6 +29,7 @@ invalidRequestData response message =
 serverError : Route.Response -> String -> Task Never Route.Response
 serverError response message =
     response
+        |> Route.log (Log.Error message)
         |> Route.setStatus 500
         |> Route.setBody message
         |> Task.succeed
