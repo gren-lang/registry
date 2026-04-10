@@ -12,4 +12,8 @@ test_exit=$?
 # shutdown backgrounded app
 devbox services stop
 
+# dump server logs for debugging
+echo "=== SERVER LOGS ==="
+cat ./logs/server.log
+
 exit $test_exit

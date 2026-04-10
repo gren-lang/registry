@@ -3,4 +3,5 @@
 db/*.db*
 dist/app
 dist/test
+logs/
 node_modules

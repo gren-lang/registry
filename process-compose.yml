@@ -7,6 +7,7 @@ processes:
     ready_log_line: "Web Service listening"
   server:
     command: make server
+    log_location: ./logs/server.log
     depends_on:
       db:
         condition: process_log_ready
