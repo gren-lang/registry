@@ -2,9 +2,9 @@ module Main exposing (main)
 
 import Bytes exposing (Bytes)
 import Crypto
-import Db
+import Sqlite
 import Dict
-import Db.Encode
+import FileSystem
 import HttpClient
 import HttpServer exposing (Request, ServerError(..), Method(..))
 import HttpServer.Response as Response exposing (Response)
@@ -18,8 +18,9 @@ import Route.Error
 import Route.PublishingIdentity
 import Route.Session
 import Stream
+import Sqlite
+import Sqlite.Encode
 import Task exposing (Task)
-import Test.E2E.Helper as Helper
 import Time
 import Url
 import User exposing (User)
@@ -48,7 +49,7 @@ type alias Model =
     { stdout : Stream.Writable Bytes
     , stderr : Stream.Writable Bytes
     , server : Maybe HttpServer.Server
-    , db : Db.Connection
+    , db : Maybe Sqlite.Database
     , postmark : Maybe Postmark.Configuration
     , secureContext : Maybe Crypto.SecureContext
     }
@@ -58,11 +59,9 @@ init : Environment -> Init.Task { model : Model, command : Cmd Msg }
 init env =
     Init.await HttpServer.initialize <| \serverPermission ->
     Init.await HttpClient.initialize <| \httpPerm ->
+    Init.await FileSystem.initialize <| \fsPerm ->
     Init.awaitTask Node.getEnvironmentVariables <| \envVars ->
         let
-            db =
-                Helper.initDb httpPerm
-
             postmark =
                 envVars
                     |> Dict.get "POSTMARK_SERVER_TOKEN"
@@ -78,14 +77,23 @@ init env =
                 { stdout = env.stdout
                 , stderr = env.stderr
                 , server = Nothing
-                , db = db
+                , db = Nothing
                 , secureContext = Nothing
                 , postmark = postmark
                 }
             , command =
+                let
+                    initDb =
+                        Registry.Db.open fsPerm
+                            |> Task.andThen 
+                                (\db -> 
+                                    Registry.Db.migrate db
+                                        |> Task.map (\_ -> db)
+                                )
+                            |> Task.attempt DbMigrationResult
+                in
                 Cmd.batch
-                    [ Registry.Db.migrate db 
-                        |> Task.attempt DbMigrationResult
+                    [ initDb
                     , HttpServer.createServer serverPermission serverConfig
                         |> Task.attempt CreateServerResult
                     , Crypto.getSecureContext
@@ -99,7 +107,7 @@ init env =
 
 type Msg
     = CreateServerResult (Result HttpServer.ServerError HttpServer.Server)
-    | DbMigrationResult (Result Db.Error (Array Int))
+    | DbMigrationResult (Result Sqlite.Error Sqlite.Database)
     | SecureContextResult (Result {} Crypto.SecureContext)
     | GotRequest { request : HttpServer.Request, response : Response }
     | ResponseReady Route.Response
@@ -128,8 +136,8 @@ update msg model =
 
         DbMigrationResult result ->
             when result is
-                Ok numChanges ->
-                    { model = model
+                Ok db ->
+                    { model = { model | db = Just db }
                     , command = Cmd.none
                     }
 
@@ -214,10 +222,12 @@ route model request response =
         config :
             { secureContext : Maybe Crypto.SecureContext
             , postmark : Maybe Postmark.Configuration
+            , db : Maybe Sqlite.Database
             }
         config =
             { secureContext = model.secureContext
             , postmark = model.postmark
+            , db = model.db
             }
     in
     when config is
@@ -232,7 +242,10 @@ route model request response =
         { postmark = Nothing } ->
             Route.Error.serverError response "Missing postmark config."
 
-        { postmark = Just postmark, secureContext = Just secureContext } ->
+        { db = Nothing } ->
+            Route.Error.serverError response "DB failed to initialize."
+
+        { postmark = Just postmark, secureContext = Just secureContext, db = Just db } ->
             when { method = request.method, path = path } is
 
                 
@@ -241,7 +254,7 @@ route model request response =
 
                 { method = POST, path = [ "session" ] } ->
                     Route.Session.create
-                        { db = model.db
+                        { db = db
                         , postmark = postmark
                         , secureContext = secureContext
                         , body = request.body
@@ -250,7 +263,7 @@ route model request response =
 
                 { method = POST, path = [ "session", "fetch" ] } ->
                     Route.Session.fetch
-                        { db = model.db
+                        { db = db
                         , secureContext = secureContext
                         , body = request.body
                         , response = response
@@ -262,7 +275,7 @@ route model request response =
 
                 { method = POST, path = [ "publishing-identity" ] } ->
                     Route.PublishingIdentity.create
-                        { db = model.db
+                        { db = db
                         , body = request.body
                         , response = response
                         }

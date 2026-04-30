@@ -1,7 +1,7 @@
 module Test.E2E.PublishingIdentity exposing (tests)
 
 
-import Db
+import Sqlite
 import Email
 import Expect
 import PublishingIdentity
@@ -10,19 +10,19 @@ import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe
 import User exposing (User)
 
 
-tests : Db.Connection -> Array Test
+tests : Sqlite.Database -> Array Test
 tests db =
     let
         identityName =
             "duplicate-name-test"
 
-        cleanPublishingIdentity : Task Db.Error Int
+        cleanPublishingIdentity : Task Sqlite.Error (Array Sqlite.ExecutionSummary)
         cleanPublishingIdentity =
-            Db.transaction db
-                [ { statement = "DELETE FROM publishing_identity_users", parameters = [] }
-                , { statement = "DELETE FROM publishing_identity", parameters = [] }
-                ]
-                |> Task.map (\_ -> 0)
+            [ { statement = "DELETE FROM publishing_identity_users", parameters = [] }
+            , { statement = "DELETE FROM publishing_identity", parameters = [] }
+            ]
+                |> Sqlite.executeAll db
+                |> Sqlite.inTransaction db
     in
     [ describe "PublishingIdentity.create"
         [ await "clean publishing identity tables" cleanPublishingIdentity <| \_ ->
@@ -33,25 +33,27 @@ tests db =
                 [ awaitError "create identity with same name and same user"
                     (PublishingIdentity.create db { user = user1, name = identityName }) <| \error ->
                         test "fails when name already exists for same user" <| \_ ->
-                            expectUniqueConstraintError error
+                            expectUniqueConstraintErrorFor "name" error
 
                 , awaitError "create identity with same name and different user"
                     (PublishingIdentity.create db { user = user2, name = identityName }) <| \error ->
                         test "fails when name already exists for different user" <| \_ ->
-                            expectUniqueConstraintError error
+                            expectUniqueConstraintErrorFor "name" error
                 ]
         ]
     ]
 
 
-expectUniqueConstraintError : Db.Error -> Expect.Expectation
-expectUniqueConstraintError error =
+expectUniqueConstraintErrorFor : String -> Sqlite.Error -> Expect.Expectation
+expectUniqueConstraintErrorFor field error =
     when error is
-        Db.Error message ->
-            if String.contains "unique" (String.toLower message) then
+        Sqlite.UniqueConstraintError message ->
+            if String.contains field (String.toLower message) then
                 Expect.pass
             else
-                Expect.fail ("Expected unique constraint error, got: " ++ message)
+                Expect.fail <|
+                    "Expected unique constraint error for " ++
+                    field ++ ", got: " ++ message
 
-        _ ->
-            Expect.fail ("Expected Db.Error with unique constraint message, got: " ++ Db.errorToString error)
+        e ->
+            Expect.fail ("Expected unique constraint error, got: " ++ Sqlite.errorToString error)

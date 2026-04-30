@@ -3,7 +3,6 @@ module Test.E2E.Helper exposing
     , expireFetchToken
     , expectBadStatus
     , expectJson
-    , initDb
     , get
     , post
     , postWithJson
@@ -12,10 +11,11 @@ module Test.E2E.Helper exposing
 
 import Bytes exposing (Bytes)
 import Crypto
-import Db
-import Db.Encode
+import Sqlite
+import Sqlite.Encode
 import Email
 import Expect exposing (Expectation)
+import FileSystem
 import HttpClient exposing (Response)
 import Json.Decode
 import Json.Encode
@@ -28,12 +28,6 @@ import User
 url : String -> String
 url path =
     "http://localhost:3000" ++ path
-
-
-initDb : HttpClient.Permission -> Db.Connection
-initDb httpPerm =
-    -- TODO: get db url from env
-    Db.init httpPerm "http://localhost:12321/local"
 
 
 get : HttpClient.Permission -> String -> Task HttpClient.Error (HttpClient.Response {})
@@ -87,7 +81,7 @@ expectJson decoder expected bytes =
                     Expect.fail (Json.Decode.errorToString error)
 
 
-createSession : Db.Connection -> Crypto.SecureContext -> Task Db.Error Session
+createSession : Sqlite.Database -> Crypto.SecureContext -> Task Sqlite.Error Session
 createSession db secureContext =
     User.findOrCreate db Email.example
         |> Task.andThen
@@ -100,7 +94,7 @@ createSession db secureContext =
             )
 
 
-expireFetchToken : Db.Connection -> Session -> Task Db.Error {}
+expireFetchToken : Sqlite.Database -> Session -> Task Sqlite.Error {}
 expireFetchToken db session =
     Task.await Time.now <| \now ->
         let
@@ -108,7 +102,7 @@ expireFetchToken db session =
                 (Time.posixToMillis now) - (16 * 60 * 1000)
                     |> Time.millisToPosix
         in
-        Db.execute db
+        Sqlite.execute db
             { statement =
                 """
                 update session
@@ -116,8 +110,8 @@ expireFetchToken db session =
                 where fetch_session_token = :fetch_session_token
                 """
             , parameters =
-                [ Db.Encode.posix "created" sixteenMinutesAgo
-                , Db.Encode.string "fetch_session_token" session.fetchSessionToken
+                [ Sqlite.Encode.time "created" sixteenMinutesAgo
+                , Sqlite.Encode.string "fetch_session_token" session.fetchSessionToken
                 ]
             }
             |> Task.map (\_ -> {})

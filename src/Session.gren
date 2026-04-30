@@ -7,9 +7,9 @@ module Session exposing
 
 import Bytes.Decode
 import Crypto
-import Db
-import Db.Encode
-import Db.Decode
+import Sqlite
+import Sqlite.Encode as Encode
+import Sqlite.Decode as Decode
 import Email
 import Math
 import Task exposing (Task)
@@ -32,11 +32,11 @@ type alias Session =
 
 
 create : 
-    { db : Db.Connection
+    { db : Sqlite.Database
     , secureContext : Crypto.SecureContext
     , user : User
     } 
-    -> Task Db.Error Session
+    -> Task Sqlite.Error Session
 create { db, user, secureContext } =
     Task.await (generateEmailConfirmationCode secureContext) <| \code ->
     Task.await (Crypto.randomUuidV4 secureContext) <| \uuid2 ->
@@ -75,16 +75,16 @@ step. Creates and returns the long-lived session token. To keep
 fetchSessionToken single-use, this will error if session token already exists.
 -}
 fetch :
-    { db : Db.Connection
+    { db : Sqlite.Database
     , secureContext : Crypto.SecureContext
     , fetchSessionToken : String
     , emailConfirmationCode : String
     }
-    -> Task Db.Error String
+    -> Task Sqlite.Error String
 fetch { db, secureContext, fetchSessionToken, emailConfirmationCode } =
     let
         getSession cutoff =
-            Db.getOne db
+            Sqlite.getOne db
                 { query =
                     """
                     select id from session
@@ -94,16 +94,16 @@ fetch { db, secureContext, fetchSessionToken, emailConfirmationCode } =
                     and token is null
                     """
                 , parameters =
-                    [ Db.Encode.string "fetch_session_token" fetchSessionToken
-                    , Db.Encode.string "email_confirmation_code" emailConfirmationCode
-                    , Db.Encode.posix "cutoff" cutoff
+                    [ Encode.string "fetch_session_token" fetchSessionToken
+                    , Encode.string "email_confirmation_code" emailConfirmationCode
+                    , Encode.time "cutoff" cutoff
                     ]
-                , decoder =
-                    Db.Decode.int "id"
+                , rowDecoder =
+                    Decode.int "id" Decode.succeed
                 }
 
         setSessionToken id sessionToken =
-            Db.execute db
+            Sqlite.execute db
                 { statement =
                     """
                     update session
@@ -111,8 +111,8 @@ fetch { db, secureContext, fetchSessionToken, emailConfirmationCode } =
                     where id = :id
                     """
                 , parameters =
-                    [ Db.Encode.string "token" sessionToken
-                    , Db.Encode.int "id" id
+                    [ Encode.string "token" sessionToken
+                    , Encode.int "id" id
                     ]
                 }
     in
@@ -131,19 +131,19 @@ fetch { db, secureContext, fetchSessionToken, emailConfirmationCode } =
 -- DB HELPERS
 
 
-dbInsert : Db.Connection -> Session -> Task Db.Error Session
+dbInsert : Sqlite.Database -> Session -> Task Sqlite.Error Session
 dbInsert db session =
     Task.map (\_ -> session) <|
-        Db.execute db 
+        Sqlite.execute db 
             { statement = 
                 """
                 insert into session (created, user_id, email_confirmation_code, fetch_session_token)
                 values (:created, :user_id, :email_confirmation_code, :fetch_session_token)
                 """
             , parameters =
-                [ Db.Encode.posix "created" session.created
-                , Db.Encode.int "user_id" session.user.id
-                , Db.Encode.string "email_confirmation_code" session.emailConfirmationCode
-                , Db.Encode.string "fetch_session_token" session.fetchSessionToken
+                [ Encode.time "created" session.created
+                , Encode.int "user_id" session.user.id
+                , Encode.string "email_confirmation_code" session.emailConfirmationCode
+                , Encode.string "fetch_session_token" session.fetchSessionToken
                 ]
             }

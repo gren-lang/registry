@@ -5,9 +5,9 @@ module PublishingIdentity exposing
     )
 
 
-import Db
-import Db.Decode as Decode
-import Db.Encode as Encode
+import Sqlite
+import Sqlite.Decode as Decode
+import Sqlite.Encode as Encode
 import Task exposing (Task)
 import User exposing (User)
 
@@ -20,13 +20,13 @@ type alias PublishingIdentity =
 
 
 create :
-    Db.Connection
+    Sqlite.Database
     -> { user : User, name : String }
-    -> Task Db.Error PublishingIdentity
+    -> Task Sqlite.Error PublishingIdentity
 create db { user, name } =
     let
         insertIdentity =
-            Db.execute db
+            Sqlite.execute db
                 { statement =
                     """
                     INSERT INTO publishing_identity (name)
@@ -38,7 +38,7 @@ create db { user, name } =
                 }
 
         getIdentityId =
-            Db.getOne db
+            Sqlite.getOne db
                 { query =
                     """
                     SELECT id FROM publishing_identity
@@ -47,11 +47,11 @@ create db { user, name } =
                 , parameters =
                     [ Encode.string "name" name
                     ]
-                , decoder = Decode.int "id"
+                , rowDecoder = Decode.int "id" Decode.succeed
                 }
 
         insertUserLink identityId =
-            Db.execute db
+            Sqlite.execute db
                 { statement =
                     """
                     INSERT INTO publishing_identity_users (user_id, publishing_identity_id)
@@ -77,11 +77,11 @@ create db { user, name } =
 
 
 get :
-    Db.Connection
+    Sqlite.Database
     -> { userId : Int, name : String }
-    -> Task Db.Error PublishingIdentity
+    -> Task Sqlite.Error PublishingIdentity
 get db { userId, name } =
-    Db.getOne db
+    Sqlite.getOne db
         { query =
             """
             SELECT pi.id, pi.name, piu.user_id
@@ -95,10 +95,10 @@ get db { userId, name } =
             [ Encode.int "user_id" userId
             , Encode.string "name" name
             ]
-        , decoder =
-            Decode.field Decode.int "id" <| \id ->
-            Decode.field Decode.int "user_id" <| \uid ->
-            Decode.field Decode.string "name" <| \n ->
+        , rowDecoder =
+            Decode.int "id" <| \id ->
+            Decode.int "user_id" <| \uid ->
+            Decode.string "name" <| \n ->
                 Decode.succeed
                     { id = id
                     , userId = uid

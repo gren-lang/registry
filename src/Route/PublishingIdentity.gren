@@ -4,7 +4,7 @@ module Route.PublishingIdentity exposing
 
 
 import Bytes exposing (Bytes)
-import Db
+import Sqlite
 import Json.Decode
 import PublishingIdentity
 import Route exposing (Response)
@@ -17,7 +17,7 @@ import User exposing (User)
 
 
 create :
-    { db : Db.Connection
+    { db : Sqlite.Database
     , body : Bytes
     , response : Response
     }

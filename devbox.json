@@ -1,11 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.13.6/.schema/devbox.schema.json",
   "packages": [
-    "nodejs@20",
-    "gren@0.6.3",
+    "nodejs@24",
+    "gren@0.6.5",
     "curl@latest",
     "jq@latest",
-    "github:blaix/ws4sql-nix/0.17dev7",
     "sqlite@latest"
   ],
   "shell": {

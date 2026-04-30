@@ -1,74 +1,88 @@
 module Registry.Db exposing
     ( migrate
+    , open
     )
 
 
-import Db
+import FileSystem
+import FileSystem.Path as Path
+import Sqlite
 import Task exposing (Task)
 
 
-migrate : Db.Connection -> Task Db.Error (Array Int)
+open : FileSystem.Permission -> Task Sqlite.Error Sqlite.Database
+open fsPerm =
+    let
+        -- TODO: get db path from environment
+        dbPath =
+            "./db/registry.db"
+    in
+    Sqlite.open fsPerm Sqlite.defaultOptions (Sqlite.File (Path.fromPosixString dbPath))
+
+
+migrate : Sqlite.Database -> Task Sqlite.Error (Array Sqlite.ExecutionSummary)
 migrate db =
-    Db.transaction db
-        [ { statement = "PRAGMA foreign_keys = ON"
-          , parameters = []
-          }
+    [ { statement = "PRAGMA foreign_keys = ON"
+      , parameters = []
+      }
 
-        , { statement = "PRAGMA busy_timeout = 5000"
-          , parameters = []
-          }
+    , { statement = "PRAGMA busy_timeout = 5000"
+      , parameters = []
+      }
 
-        , { statement = 
-            """
-            CREATE TABLE IF NOT EXISTS user (
-                id INTEGER PRIMARY KEY,
-                email TEXT NOT NULL UNIQUE,
-                created INTEGER NOT NULL -- timestamp
-            ) STRICT
-            """
-          , parameters = []
-          }
+    , { statement = 
+        """
+        CREATE TABLE IF NOT EXISTS user (
+            id INTEGER PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            created INTEGER NOT NULL -- timestamp
+        ) STRICT
+        """
+      , parameters = []
+      }
 
-        , { statement =
-            """
-            CREATE TABLE IF NOT EXISTS session (
-                id INTEGER PRIMARY KEY,
-                created INTEGER NOT NULL,
-                user_id INTEGER NOT NULL REFERENCES user(id),
+    , { statement =
+        """
+        CREATE TABLE IF NOT EXISTS session (
+            id INTEGER PRIMARY KEY,
+            created INTEGER NOT NULL,
+            user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
 
-                -- Code emailed to user for email confirmation.
-                -- User will provide this to the CLI.
-                email_confirmation_code TEXT NOT NULL UNIQUE,
+            -- Code emailed to user for email confirmation.
+            -- User will provide this to the CLI.
+            email_confirmation_code TEXT NOT NULL UNIQUE,
 
-                -- Token used by the CLI to fetch session token.
-                fetch_session_token TEXT NOT NULL UNIQUE,
+            -- Token used by the CLI to fetch session token.
+            fetch_session_token TEXT NOT NULL UNIQUE,
 
-                -- Create and return this when CLI posts with email_confirmation_code and fetch_session_token
-                token TEXT UNIQUE
-            ) STRICT
-            """
-          , parameters = []
-          }
+            -- Create and return this when CLI posts with email_confirmation_code and fetch_session_token
+            token TEXT UNIQUE
+        ) STRICT
+        """
+      , parameters = []
+      }
 
-        , { statement =
-            """
-            CREATE TABLE IF NOT EXISTS publishing_identity (
-                id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL UNIQUE
-            ) STRICT
-            """
-          , parameters = []
-          }
+    , { statement =
+        """
+        CREATE TABLE IF NOT EXISTS publishing_identity (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE
+        ) STRICT
+        """
+      , parameters = []
+      }
 
-        , { statement =
-            """
-            CREATE TABLE IF NOT EXISTS publishing_identity_users (
-                user_id INTEGER NOT NULL REFERENCES user(id),
-                publishing_identity_id INTEGER NOT NULL REFERENCES publishing_identity(id),
-                role TEXT,
-                UNIQUE(user_id, publishing_identity_id)
-            ) STRICT
-            """
-          , parameters = []
-          }
-        ]
+    , { statement =
+        """
+        CREATE TABLE IF NOT EXISTS publishing_identity_users (
+            user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
+            publishing_identity_id INTEGER NOT NULL REFERENCES publishing_identity(id) ON DELETE CASCADE,
+            role TEXT,
+            UNIQUE(user_id, publishing_identity_id)
+        ) STRICT
+        """
+      , parameters = []
+      }
+    ]
+        |> Sqlite.executeAll db
+        |> Sqlite.inTransaction db

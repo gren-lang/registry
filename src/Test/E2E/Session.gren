@@ -2,9 +2,9 @@ module Test.E2E.Session exposing (tests)
 
 
 import Crypto
-import Db
-import Db.Encode
-import Db.Decode
+import Sqlite
+import Sqlite.Encode as Encode
+import Sqlite.Decode as Decode
 import Email
 import Expect
 import Fuzz
@@ -14,7 +14,7 @@ import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe
 import User exposing (User)
 
 
-tests : Db.Connection -> Crypto.SecureContext -> Array Test
+tests : Sqlite.Database -> Crypto.SecureContext -> Array Test
 tests db secureContext =
     let
         sessionSampleSize =
@@ -30,10 +30,10 @@ tests db secureContext =
                         }
 
         countSessions user =
-            Db.getOne db
+            Sqlite.getOne db
                 { query = "select count(*) as count from session where user_id = :user_id"
-                , parameters = [ Db.Encode.int "user_id" user.id ]
-                , decoder = Db.Decode.int "count"
+                , parameters = [ Encode.int "user_id" user.id ]
+                , rowDecoder = Decode.int "count" Decode.succeed
                 }
 
         ambiguousChars =
