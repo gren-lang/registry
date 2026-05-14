@@ -10,3 +10,6 @@ eval "$(devbox generate direnv --print-envrc)"
 # Use POSTMARK_API_TEST if you don't need to send real emails.
 # https://postmarkapp.com/support/article/1213-best-practices-for-testing-your-emails-through-postmark
 export POSTMARK_SERVER_TOKEN=POSTMARK_API_TEST
+
+# SQLite database path
+export REGISTRY_DB_PATH=./db/registry.db

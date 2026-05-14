@@ -4,3 +4,4 @@ version: "0.5"
 processes:
   server:
     command: make server
+    log_location: ${SERVER_LOG_PATH:-./log/server.log}
