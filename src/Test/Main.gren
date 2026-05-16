@@ -1,13 +1,14 @@
 module Test.Main exposing (main)
 
 import Expect
+import FileSystem
 import HttpClient
 import Init
 import Node
-import Registry.Db
+import Registry.Db as Db
+import Task
 import Test
 import Test.E2E
-import Test.E2E.Helper as Helper
 import Test.Runner.Effectful as Effectful exposing (await)
 import Test.Unit
 
@@ -15,13 +16,15 @@ main : Effectful.Program a
 main =
     Node.defineSimpleProgram <| \env ->
         Init.await HttpClient.initialize <| \httpPerm ->
+        Init.await FileSystem.initialize <| \fsPerm ->
             Effectful.run env <|
-                let
-                    migrate =
-                        Registry.Db.migrate (Helper.initDb httpPerm)
-                in
                 Effectful.concat
                     [ Effectful.wrap <| Test.describe "Unit tests" Test.Unit.tests
-                    , await "Run migrations for E2E tests" migrate <| \_ ->
-                        Effectful.describe "E2E tests" (Test.E2E.tests httpPerm)
+                    , await "Init DB for E2E tests" (Db.open fsPerm) <| \db ->
+                      await "Run migrations for E2E tests" (Db.migrate db) <| \_ ->
+                        Effectful.describe "E2E tests" <|
+                            Test.E2E.tests
+                                { httpPerm = httpPerm
+                                , db = db
+                                }
                     ]

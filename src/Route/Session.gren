@@ -6,7 +6,7 @@ module Route.Session exposing
 
 import Bytes exposing (Bytes)
 import Crypto
-import Db
+import Sqlite
 import Email exposing (Email)
 import HttpClient
 import HttpServer exposing (Request)
@@ -22,7 +22,7 @@ import User exposing (User)
 
 
 type Error
-    = DbError Db.Error
+    = DbError Sqlite.Error
     | SendEmailFailed HttpClient.Error
 
 
@@ -35,7 +35,7 @@ This will email a confirmation code and return a fetch session token.
 Both must be POSTED to `fetch` to get a long lived session token.
 -}
 create :
-    { db : Db.Connection
+    { db : Sqlite.Database
     , postmark : Postmark.Configuration
     , secureContext : Crypto.SecureContext
     , body : Bytes
@@ -62,7 +62,7 @@ POST emailConfirmationCode and fetchSessionToken from the `create` call to get
 a long-lived session token you can store to make authenticated API requests.
 -}
 fetch :
-    { db : Db.Connection
+    { db : Sqlite.Database
     , secureContext : Crypto.SecureContext
     , body : Bytes
     , response : Response
@@ -140,13 +140,13 @@ fetchRequestDecoder =
 -- ACTIONS
 
 
-findOrCreateUser : Db.Connection -> Email -> Task Error User
+findOrCreateUser : Sqlite.Database -> Email -> Task Error User
 findOrCreateUser db email =
     User.findOrCreate db email
         |> Task.mapError DbError
 
 
-createSession : Db.Connection -> Crypto.SecureContext -> User -> Task Error Session
+createSession : Sqlite.Database -> Crypto.SecureContext -> User -> Task Error Session
 createSession db secureContext user =
     Session.create { db = db, secureContext = secureContext, user = user }
         |> Task.mapError DbError
@@ -189,7 +189,7 @@ createFailed response error =
             let
                 errorMsg =
                     "Database error creating session: " ++
-                    Db.errorToString e
+                    Sqlite.errorToString e
             in
             response
                 |> Route.log (Log.Error errorMsg)
@@ -229,7 +229,7 @@ fetchSuccess response sessionToken =
 fetchFailed : Response -> Error -> Task x Response
 fetchFailed response error =
     when error is
-        DbError Db.NoResultError ->
+        DbError Sqlite.NoResultsError ->
             response
                 |> Route.setStatus 400
                 |> setErrorMessage "Invalid token or confirmation code"
@@ -239,7 +239,7 @@ fetchFailed response error =
             let
                 errorMsg =
                     "Error fetching session from DB: " ++
-                    Db.errorToString e
+                    Sqlite.errorToString e
             in
             response
                 |> Route.log (Log.Error errorMsg)

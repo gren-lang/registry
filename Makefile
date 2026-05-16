@@ -7,11 +7,6 @@ dist/test: dist/app
 gren_packages: gren.json
 	gren package install
 
-.PHONY: db
-db:
-	# TODO: get db url from env
-	ws4sql --quick-db=db/local.db
-
 .PHONY: server
 server: dist/app
 	node dist/app

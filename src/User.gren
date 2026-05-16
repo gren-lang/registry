@@ -6,9 +6,9 @@ module User exposing
     )
 
 
-import Db
-import Db.Decode as Decode exposing (Decoder)
-import Db.Encode as Encode
+import Sqlite
+import Sqlite.Decode as Decode exposing (Decoder)
+import Sqlite.Encode as Encode
 import Email exposing (Email)
 import Task exposing (Task)
 import Time
@@ -23,14 +23,14 @@ type alias User =
 
 decoder : Decoder User
 decoder =
-    Decode.field Decode.string "email" <| \email ->
+    Decode.string "email" <| \email ->
         when (Email.fromString email) is
             Nothing ->
                 Decode.fail ("Invalid email: " ++ email)
             
             Just e ->
-                Decode.field Decode.int "id" <| \id ->
-                Decode.field Decode.posix "created" <| \created ->
+                Decode.int "id" <| \id ->
+                Decode.time "created" <| \created ->
                     Decode.succeed
                         { id = id
                         , created = created
@@ -38,9 +38,9 @@ decoder =
                         }
 
 
-findBySessionToken : Db.Connection -> String -> Task Db.Error User
+findBySessionToken : Sqlite.Database -> String -> Task Sqlite.Error User
 findBySessionToken db sessionToken =
-    Db.getOne db
+    Sqlite.getOne db
         { query =
             """
             SELECT user.id, user.email, user.created
@@ -49,11 +49,11 @@ findBySessionToken db sessionToken =
             WHERE session.token = :token
             """
         , parameters = [ Encode.string "token" sessionToken ]
-        , decoder = decoder
+        , rowDecoder = decoder
         }
 
 
-findOrCreate : Db.Connection -> Email -> Task Db.Error User
+findOrCreate : Sqlite.Database -> Email -> Task Sqlite.Error User
 findOrCreate db email =
     let
         encodedEmail =
@@ -61,19 +61,19 @@ findOrCreate db email =
 
         createUser =
             Task.await Time.now <| \now ->
-                Db.execute db
+                Sqlite.execute db
                     { statement = "INSERT OR IGNORE INTO user (created, email) VALUES (:created, :email)"
                     , parameters =
-                        [ Encode.posix "created" now
+                        [ Encode.time "created" now
                         , encodedEmail
                         ]
                     }
 
         getUser =
-            Db.getOne db
+            Sqlite.getOne db
                 { query = "SELECT * FROM USER WHERE email = :email"
                 , parameters = [ encodedEmail ]
-                , decoder = decoder
+                , rowDecoder = decoder
                 }
     in
     createUser |> Task.andThen (\_ -> getUser)

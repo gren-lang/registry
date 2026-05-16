@@ -1,14 +1,13 @@
 module Test.E2E exposing (tests)
 
 import Crypto
-import Db
+import Sqlite
 import Dict
 import Expect
 import HttpClient
-import Node
 import Task
 import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test)
-import Test.E2E.Helper exposing (get, expectBadStatus, initDb)
+import Test.E2E.Helper exposing (get, expectBadStatus)
 import Test.E2E.Route.Session
 import Test.E2E.Route.PublishingIdentity
 import Test.E2E.Postmark
@@ -17,13 +16,13 @@ import Test.E2E.Session
 import Test.E2E.User
 
 
-tests : HttpClient.Permission -> Array Test
-tests httpPerm =
+tests :
+    { httpPerm : HttpClient.Permission
+    , db : Sqlite.Database
+    }
+    -> Array Test
+tests { httpPerm, db } =
     let
-        db : Db.Connection
-        db =
-            initDb httpPerm
-
         postmark =
             -- https://postmarkapp.com/support/article/1213-best-practices-for-testing-your-emails-through-postmark
             { apiToken = "POSTMARK_API_TEST"

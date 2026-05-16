@@ -3,9 +3,9 @@ module Test.E2E.Route.Session exposing (tests)
 
 import Bytes
 import Crypto
-import Db
-import Db.Encode
-import Db.Decode
+import Sqlite
+import Sqlite.Encode
+import Sqlite.Decode
 import Email
 import Expect
 import HttpClient
@@ -13,11 +13,11 @@ import Json.Decode
 import Json.Encode
 import Task exposing (Task)
 import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test, todo)
-import Test.E2E.Helper exposing (expireFetchToken, createSession, initDb, get, post, postWithJson, expectBadStatus, expectJson)
+import Test.E2E.Helper exposing (expireFetchToken, createSession, get, post, postWithJson, expectBadStatus, expectJson)
 import User exposing (User)
 
 
-tests : Db.Connection -> HttpClient.Permission -> Crypto.SecureContext -> Array Test
+tests : Sqlite.Database -> HttpClient.Permission -> Crypto.SecureContext -> Array Test
 tests db httpPerm secureContext =
 
 
@@ -62,7 +62,7 @@ tests db httpPerm secureContext =
                     Expect.equal 200 response.statusCode
 
                 , await "Getting session info from db" 
-                    (Db.getOne db
+                    (Sqlite.getOne db
                         { query = 
                             """
                             select fetch_session_token from session
@@ -72,9 +72,11 @@ tests db httpPerm secureContext =
                             limit 1
                             """
                         , parameters =
-                            [ Db.Encode.string "email" goodEmail ]
-                        , decoder =
-                            Db.Decode.string "fetch_session_token"
+                            [ Sqlite.Encode.string "email" goodEmail ]
+                        , rowDecoder =
+                            Sqlite.Decode.string 
+                                "fetch_session_token"
+                                Sqlite.Decode.succeed
                         }
                     )
                     (\expectedToken ->
@@ -108,7 +110,7 @@ tests db httpPerm secureContext =
                             ]
             in
             [ awaitError "with bad token and code"
-                (doPost { token = "", code = "" }) <| \response -> 
+                (doPost { token = "", code = "" }) <| \response ->
                     test "Responds with 400 error" <| \_ ->
                         expectBadStatus 400 response
 
@@ -129,16 +131,16 @@ tests db httpPerm secureContext =
                             Expect.equal 200 response.statusCode
 
                         , await "Getting session token from db"
-                            (Db.getOne db
+                            (Sqlite.getOne db
                                 { query =
                                     """
                                     select token from session
                                     where fetch_session_token = :fetch_session_token
                                     """
                                 , parameters =
-                                    [ Db.Encode.string "fetch_session_token" session.fetchSessionToken ]
-                                , decoder =
-                                    Db.Decode.string "token"
+                                    [ Sqlite.Encode.string "fetch_session_token" session.fetchSessionToken ]
+                                , rowDecoder =
+                                    Sqlite.Decode.string "token" Sqlite.Decode.succeed
                                 }
                             )
                             (\expectedToken ->

@@ -1,36 +1,35 @@
 module Test.E2E.User exposing (tests)
 
 
-import Db
-import Db.Encode
-import Db.Decode
+import Sqlite
+import Sqlite.Encode as Encode
+import Sqlite.Decode as Decode
 import Email
 import Expect
 import Task exposing (Task)
 import Test.Runner.Effectful exposing (Test, await, concat, describe, test)
-import Test.E2E.Helper exposing (initDb)
 import User exposing (User)
 
 
-tests : Db.Connection -> Array Test
+tests : Sqlite.Database -> Array Test
 tests db =
     let
-        dropUsers : Task Db.Error Int
+        dropUsers : Task Sqlite.Error Sqlite.ExecutionSummary
         dropUsers =
-            Db.execute db
+            Sqlite.execute db
                 { statement = "delete from user"
                 , parameters = []
                 }
 
-        countUsers : Task Db.Error Int
+        countUsers : Task Sqlite.Error Int
         countUsers =
-            Db.getOne db
+            Sqlite.getOne db
                 { query = "select count(*) as userCount from user where email = :email"
-                , parameters = [ Db.Encode.string "email" (Email.toString Email.example) ]
-                , decoder = Db.Decode.int "userCount"
+                , parameters = [ Encode.string "email" (Email.toString Email.example) ]
+                , rowDecoder = Decode.int "userCount" Decode.succeed
                 }
 
-        findOrCreateUser : Task Db.Error User
+        findOrCreateUser : Task Sqlite.Error User
         findOrCreateUser =
             User.findOrCreate db Email.example
     in

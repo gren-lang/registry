@@ -3,9 +3,9 @@ module Test.E2E.Route.PublishingIdentity exposing (tests)
 
 import Crypto
 import Bytes exposing (Bytes)
-import Db
-import Db.Encode
-import Db.Decode
+import Sqlite
+import Sqlite.Encode
+import Sqlite.Decode
 import Expect
 import HttpClient
 import Json.Decode
@@ -14,22 +14,22 @@ import PublishingIdentity exposing (PublishingIdentity)
 import Session exposing (Session)
 import Task exposing (Task)
 import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test, todo)
-import Test.E2E.Helper exposing (createSession, initDb, get, post, postWithJson, expectBadStatus, expectJson)
+import Test.E2E.Helper exposing (createSession, get, post, postWithJson, expectBadStatus, expectJson)
 import User exposing (User)
 
 
-tests : Db.Connection -> HttpClient.Permission -> Crypto.SecureContext -> Array Test
+tests : Sqlite.Database -> HttpClient.Permission -> Crypto.SecureContext -> Array Test
 tests db httpPerm secureContext =
     let
-        cleanPublishingIdentity : Task Db.Error Int
+        cleanPublishingIdentity : Task Sqlite.Error (Array Sqlite.ExecutionSummary)
         cleanPublishingIdentity =
-            Db.transaction db
-                [ { statement = "DELETE FROM publishing_identity_users", parameters = [] }
-                , { statement = "DELETE FROM publishing_identity", parameters = [] }
-                ]
-                |> Task.map (\_ -> 0)
+            [ { statement = "DELETE FROM publishing_identity_users", parameters = [] }
+            , { statement = "DELETE FROM publishing_identity", parameters = [] }
+            ]
+                |> Sqlite.executeAll db
+                |> Sqlite.inTransaction db
 
-        fetchSessionToken : Session -> Task Db.Error String
+        fetchSessionToken : Session -> Task Sqlite.Error String
         fetchSessionToken session =
             Session.fetch
                 { db = db
@@ -66,7 +66,7 @@ tests db httpPerm secureContext =
     -- GET /publishing-identity (404)
 
 
-    [ awaitError "GET /publishing-identity" 
+    [ awaitError "GET /publishing-identity"
         (get httpPerm "/publishing-identity") <| \response ->
             test "404s" <| \_ ->
                 expectBadStatus 404 response
@@ -75,7 +75,7 @@ tests db httpPerm secureContext =
     -- POST /publishing-identity (create)
 
 
-    , awaitError "POST /publishing-identity with no session token" 
+    , awaitError "POST /publishing-identity with no session token"
         (doPost { sessionToken = Nothing, name = "my-publishing-identity" }) <| \response ->
             test "Responds with 400 error" <| \_ ->
                 expectBadStatus 400 response
