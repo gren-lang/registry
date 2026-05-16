@@ -22,15 +22,7 @@ open fsPerm =
 
 migrate : Sqlite.Database -> Task Sqlite.Error (Array Sqlite.ExecutionSummary)
 migrate db =
-    [ { statement = "PRAGMA foreign_keys = ON"
-      , parameters = []
-      }
-
-    , { statement = "PRAGMA busy_timeout = 5000"
-      , parameters = []
-      }
-
-    , { statement = 
+    [ { statement = 
         """
         CREATE TABLE IF NOT EXISTS user (
             id INTEGER PRIMARY KEY,
