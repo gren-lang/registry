@@ -5,6 +5,7 @@ import Crypto
 import Sqlite
 import Dict
 import FileSystem
+import FileSystem.Path as Path
 import HttpClient
 import HttpServer exposing (Request, ServerError(..), Method(..))
 import HttpServer.Response as Response exposing (Response)
@@ -71,6 +72,11 @@ init env =
                             , apiToken = token
                             }
                         )
+
+            maybeDbLocation =
+                envVars
+                    |> Dict.get "REGISTRY_DB_PATH"
+                    |> Maybe.map (\path -> Sqlite.File (Path.fromPosixString path))
         in
         Node.startProgram
             { model =
@@ -82,23 +88,31 @@ init env =
                 , postmark = postmark
                 }
             , command =
-                let
-                    initDb =
-                        Registry.Db.open fsPerm
-                            |> Task.andThen 
-                                (\db -> 
-                                    Registry.Db.migrate db
-                                        |> Task.map (\_ -> db)
-                                )
-                            |> Task.attempt DbMigrationResult
-                in
-                Cmd.batch
-                    [ initDb
-                    , HttpServer.createServer serverPermission serverConfig
-                        |> Task.attempt CreateServerResult
-                    , Crypto.getSecureContext
-                        |> Task.attempt SecureContextResult
-                    ]
+                when maybeDbLocation is
+                    Nothing ->
+                        "REGISTRY_DB_PATH environment variable is not set"
+                            |> print env.stderr
+                            |> Task.map (\_ -> Node.exitWithCode 1)
+                            |> Task.executeCmd
+
+                    Just dbLocation ->
+                        let
+                            initDb =
+                                Registry.Db.open fsPerm dbLocation
+                                    |> Task.andThen
+                                        (\db ->
+                                            Registry.Db.migrate db
+                                                |> Task.map (\_ -> db)
+                                        )
+                                    |> Task.attempt DbMigrationResult
+                        in
+                        Cmd.batch
+                            [ initDb
+                            , HttpServer.createServer serverPermission serverConfig
+                                |> Task.attempt CreateServerResult
+                            , Crypto.getSecureContext
+                                |> Task.attempt SecureContextResult
+                            ]
             }
 
 

@@ -1,11 +1,14 @@
 module Test.Main exposing (main)
 
+import Dict
 import Expect
 import FileSystem
+import FileSystem.Path as Path
 import HttpClient
 import Init
 import Node
 import Registry.Db as Db
+import Sqlite
 import Task
 import Test
 import Test.E2E
@@ -17,10 +20,20 @@ main =
     Node.defineSimpleProgram <| \env ->
         Init.await HttpClient.initialize <| \httpPerm ->
         Init.await FileSystem.initialize <| \fsPerm ->
+        Init.awaitTask Node.getEnvironmentVariables <| \envVars ->
+            let
+                openDb =
+                    when Dict.get "REGISTRY_DB_PATH" envVars is
+                        Just path ->
+                            Db.open fsPerm (Sqlite.File (Path.fromPosixString path))
+
+                        Nothing ->
+                            Task.fail (Sqlite.GenericError "REGISTRY_DB_PATH environment variable is not set")
+            in
             Effectful.run env <|
                 Effectful.concat
                     [ Effectful.wrap <| Test.describe "Unit tests" Test.Unit.tests
-                    , await "Init DB for E2E tests" (Db.open fsPerm) <| \db ->
+                    , await "Init DB for E2E tests" openDb <| \db ->
                       await "Run migrations for E2E tests" (Db.migrate db) <| \_ ->
                         Effectful.describe "E2E tests" <|
                             Test.E2E.tests

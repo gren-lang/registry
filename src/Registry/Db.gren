@@ -5,19 +5,13 @@ module Registry.Db exposing
 
 
 import FileSystem
-import FileSystem.Path as Path
 import Sqlite
 import Task exposing (Task)
 
 
-open : FileSystem.Permission -> Task Sqlite.Error Sqlite.Database
-open fsPerm =
-    let
-        -- TODO: get db path from environment
-        dbPath =
-            "./db/registry.db"
-    in
-    Sqlite.open fsPerm Sqlite.defaultOptions (Sqlite.File (Path.fromPosixString dbPath))
+open : FileSystem.Permission -> Sqlite.Location -> Task Sqlite.Error Sqlite.Database
+open fsPerm location =
+    Sqlite.open fsPerm Sqlite.defaultOptions location
 
 
 migrate : Sqlite.Database -> Task Sqlite.Error (Array Sqlite.ExecutionSummary)
