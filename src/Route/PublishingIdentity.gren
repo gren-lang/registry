@@ -6,16 +6,28 @@ module Route.PublishingIdentity exposing
 import Bytes exposing (Bytes)
 import Sqlite
 import Json.Decode
-import PublishingIdentity
+import Json.Encode
+import Log
+import PublishingIdentity exposing (PublishingIdentity)
 import Route exposing (Response)
 import Route.Error
 import Task exposing (Task)
 import User exposing (User)
 
 
+type Error
+    = InvalidSession
+    | DbError Sqlite.Error
+
+
 -- ENDPOINTS
 
 
+{-| POST to register a new publishing identity.
+
+Requires a valid session token. The authenticated user becomes the first
+member of the new identity.
+-}
 create :
     { db : Sqlite.Database
     , body : Bytes
@@ -29,16 +41,10 @@ create { db, body, response } =
                 "Request json must contain a non-empty `session` and `name` field."
 
         Just { sessionToken, name } ->
-            -- TODO: move user fetch to routing level
-            User.findBySessionToken db sessionToken
-                |> Task.andThen (\user ->
-                    PublishingIdentity.create db { user = user, name = name }
-                )
-                |> Task.map (\_ -> response)
-                |> Task.onError (\_ ->
-                    Route.Error.invalidRequestData response
-                        "Invalid session token."
-                )
+            findUser db sessionToken
+                |> Task.andThen (createIdentity db name)
+                |> Task.map (createSuccess response)
+                |> Task.onError (createFailed response)
 
 
 -- REQUEST PARSING
@@ -79,3 +85,86 @@ validateCreateRequest request =
         Nothing
     else
         Just request
+
+
+-- ACTIONS
+
+
+findUser : Sqlite.Database -> String -> Task Error User
+findUser db sessionToken =
+    User.findBySessionToken db sessionToken
+        |> Task.mapError
+            (\error ->
+                when error is
+                    Sqlite.NoResultsError ->
+                        InvalidSession
+
+                    _ ->
+                        DbError error
+            )
+
+
+createIdentity : Sqlite.Database -> String -> User -> Task Error PublishingIdentity
+createIdentity db name user =
+    PublishingIdentity.create db { user = user, name = name }
+        |> Task.mapError DbError
+
+
+-- RESPONSES
+
+
+createSuccess : Response -> PublishingIdentity -> Response
+createSuccess response identity =
+    let
+        responseJson =
+            Json.Encode.object
+                [ { key = "id", value = Json.Encode.int identity.id }
+                , { key = "name", value = Json.Encode.string identity.name }
+                ]
+    in
+    response
+        |> Route.setHeader "Content-Type" "application/json"
+        |> Route.setBody (Json.Encode.encode 0 responseJson)
+
+
+createFailed : Response -> Error -> Task x Response
+createFailed response error =
+    when error is
+        InvalidSession ->
+            response
+                |> Route.setStatus 400
+                |> setErrorMessage "Invalid session token."
+                |> Task.succeed
+
+        DbError (Sqlite.UniqueConstraintError _) ->
+            response
+                |> Route.setStatus 409
+                |> setErrorMessage "That publishing identity name is already taken."
+                |> Task.succeed
+
+        DbError e ->
+            let
+                errorMsg =
+                    "Database error creating publishing identity: " ++
+                    Sqlite.errorToString e
+            in
+            response
+                |> Route.log (Log.Error errorMsg)
+                |> Route.setStatus 500
+                |> setErrorMessage "Database error"
+                |> Task.succeed
+
+
+-- HELPERS
+
+
+setErrorMessage : String -> Response -> Response
+setErrorMessage message response =
+    let
+        body =
+            Json.Encode.object
+                [ { key = "message", value = Json.Encode.string message } ]
+    in
+    response
+        |> Route.setHeader "Content-Type" "application/json"
+        |> Route.setBody (Json.Encode.encode 0 body)

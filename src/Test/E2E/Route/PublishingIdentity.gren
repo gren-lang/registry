@@ -99,6 +99,12 @@ tests db httpPerm secureContext =
                 [ test "Responds with 200" <| \_ ->
                     Expect.equal 200 response.statusCode
 
+                , test "Responds with the created identity as json" <| \_ ->
+                    expectJson
+                        (Json.Decode.field "name" Json.Decode.string)
+                        "my-publishing-identity"
+                        response.data
+
                 , await "find created publishing identity"
                     ( PublishingIdentity.get db
                         { userId = session.user.id
@@ -113,5 +119,10 @@ tests db httpPerm secureContext =
                                     { name = publishingIdentity.name
                                     , userId = publishingIdentity.userId
                                     }
+
+                , awaitError "POST /publishing-identity with a duplicate name"
+                    (doPost { sessionToken = Just token, name = "my-publishing-identity" }) <| \duplicateResponse ->
+                        test "Responds with 409 conflict" <| \_ ->
+                            expectBadStatus 409 duplicateResponse
                 ]
     ]
