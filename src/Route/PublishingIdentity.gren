@@ -16,8 +16,7 @@ import User exposing (User)
 
 
 type Error
-    = InvalidSession
-    | DbError Sqlite.Error
+    = DbError Sqlite.Error
 
 
 -- ENDPOINTS
@@ -25,24 +24,23 @@ type Error
 
 {-| POST to register a new publishing identity.
 
-Requires a valid session token. The authenticated user becomes the first
-member of the new identity.
+The authenticated `user` becomes the first member of the new identity.
 -}
 create :
     { db : Sqlite.Database
+    , user : User
     , body : Bytes
     , response : Response
     }
     -> Task Never Response
-create { db, body, response } =
-    when getCreateRequest body is
+create { db, user, body, response } =
+    when getName body is
         Nothing ->
             Route.Error.invalidRequestData response
-                "Request json must contain a non-empty `session` and `name` field."
+                "Request json must contain a non-empty `name` field."
 
-        Just { sessionToken, name } ->
-            findUser db sessionToken
-                |> Task.andThen (createIdentity db name)
+        Just name ->
+            createIdentity db name user
                 |> Task.map (createSuccess response)
                 |> Task.onError (createFailed response)
 
@@ -50,58 +48,30 @@ create { db, body, response } =
 -- REQUEST PARSING
 
 
-type alias CreateRequest =
-    { sessionToken : String
-    , name : String
-    }
-
-
-getCreateRequest : Bytes -> Maybe CreateRequest
-getCreateRequest bytes =
+getName : Bytes -> Maybe String
+getName bytes =
     bytes
         |> Bytes.toString
-        |> Maybe.andThen decodeCreateRequest
-        |> Maybe.andThen validateCreateRequest
+        |> Maybe.andThen decodeName
+        |> Maybe.map String.trim
+        |> Maybe.andThen
+            (\name ->
+                if String.isEmpty name then
+                    Nothing
+
+                else
+                    Just name
+            )
 
 
-decodeCreateRequest : String -> Maybe CreateRequest
-decodeCreateRequest json =
+decodeName : String -> Maybe String
+decodeName json =
     json
-        |> Json.Decode.decodeString createRequestDecoder
+        |> Json.Decode.decodeString (Json.Decode.field "name" Json.Decode.string)
         |> Result.toMaybe
 
 
-createRequestDecoder : Json.Decode.Decoder CreateRequest
-createRequestDecoder =
-    Json.Decode.map2
-        (\token name -> { sessionToken = token, name = name })
-        (Json.Decode.field "session" Json.Decode.string)
-        (Json.Decode.field "name" Json.Decode.string)
-
-
-validateCreateRequest : CreateRequest -> Maybe CreateRequest
-validateCreateRequest request =
-    if String.isEmpty request.sessionToken || String.isEmpty request.name then
-        Nothing
-    else
-        Just request
-
-
 -- ACTIONS
-
-
-findUser : Sqlite.Database -> String -> Task Error User
-findUser db sessionToken =
-    User.findBySessionToken db sessionToken
-        |> Task.mapError
-            (\error ->
-                when error is
-                    Sqlite.NoResultsError ->
-                        InvalidSession
-
-                    _ ->
-                        DbError error
-            )
 
 
 createIdentity : Sqlite.Database -> String -> User -> Task Error PublishingIdentity
@@ -130,12 +100,6 @@ createSuccess response identity =
 createFailed : Response -> Error -> Task x Response
 createFailed response error =
     when error is
-        InvalidSession ->
-            response
-                |> Route.setStatus 400
-                |> setErrorMessage "Invalid session token."
-                |> Task.succeed
-
         DbError (Sqlite.UniqueConstraintError _) ->
             response
                 |> Route.setStatus 409

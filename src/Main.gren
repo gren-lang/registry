@@ -15,6 +15,7 @@ import Node exposing (Environment, Program)
 import Postmark
 import Registry.Db
 import Route
+import Route.Auth
 import Route.Error
 import Route.PublishingIdentity
 import Route.Session
@@ -288,8 +289,14 @@ route model request response =
 
 
                 { method = POST, path = [ "publishing-identity" ] } ->
+                    Route.Auth.withUser
+                        { db = db
+                        , headers = request.headers
+                        , response = response
+                        } <| \user ->
                     Route.PublishingIdentity.create
                         { db = db
+                        , user = user
                         , body = request.body
                         , response = response
                         }
