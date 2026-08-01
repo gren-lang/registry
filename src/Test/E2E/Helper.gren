@@ -6,6 +6,7 @@ module Test.E2E.Helper exposing
     , get
     , post
     , postWithJson
+    , authenticatedPostWithJson
     )
 
 
@@ -52,6 +53,32 @@ postWithJson httpPerm path json =
         |> HttpClient.post
         |> HttpClient.expectBytes
         |> HttpClient.withJsonBody json
+        |> HttpClient.send httpPerm
+
+
+authenticatedPostWithJson : 
+    HttpClient.Permission 
+    -> String 
+    -> Maybe String 
+    -> Json.Encode.Value 
+    -> Task HttpClient.Error (HttpClient.Response Bytes)
+authenticatedPostWithJson httpPerm path maybeToken json =
+    let
+        withAuth request =
+            when maybeToken is
+                Just token ->
+                    request
+                        |> HttpClient.withHeader 
+                            "Authorization" ("Bearer " ++ token)
+
+                Nothing ->
+                    request
+    in
+    url path
+        |> HttpClient.post
+        |> HttpClient.expectBytes
+        |> HttpClient.withJsonBody json
+        |> withAuth
         |> HttpClient.send httpPerm
 
 

@@ -1,0 +1,99 @@
+module Route.Auth exposing
+    ( getSessionToken
+    , withUser
+    )
+
+
+import Dict exposing (Dict)
+import Json.Encode
+import Log
+import Route exposing (Response)
+import Route.Error
+import Sqlite
+import Task exposing (Task)
+import User exposing (User)
+
+
+{-| Extract the session token from the `Authorization: Bearer <token>` header.
+-}
+getSessionToken : Dict String String -> Maybe String
+getSessionToken headers =
+    headers
+        -- case/whitespace-insensitive header lookup
+        |> Dict.findFirst (\key _ -> String.toLower key == "authorization")
+        |> Maybe.map .value
+        |> Maybe.map String.trim
+        |> Maybe.andThen
+            (\value ->
+                if String.startsWith "Bearer " value then
+                    value
+                        |> String.dropFirst 7
+                        |> String.trim
+                        |> Just
+                else
+                    Nothing
+            )
+
+
+{-| Routing middleware to resolve an authenticated user from request.
+
+Looks for `Authorization: Bearer <session token>` header and looks up the user.
+If the header is missing or the token is invalid, this short-circuits to an
+error response and the callback is never called.
+-}
+withUser :
+    { db : Sqlite.Database
+    , headers : Dict String String
+    , response : Response
+    }
+    -> (User -> Task Never Response)
+    -> Task Never Response
+withUser { db, headers, response } handler =
+    when getSessionToken headers is
+        Nothing ->
+            Route.Error.invalidRequestData response
+                "Missing or empty Authorization header."
+
+        Just sessionToken ->
+            User.findBySessionToken db sessionToken
+                |> Task.map Ok
+                |> Task.onError (\error -> Task.succeed (Err error))
+                |> Task.andThen
+                    (\result ->
+                        when result is
+                            Ok user ->
+                                handler user
+
+                            Err Sqlite.NoResultsError ->
+                                response
+                                    |> Route.setStatus 400
+                                    |> setErrorMessage "Invalid session token."
+                                    |> Task.succeed
+
+                            Err error ->
+                                let
+                                    errorMsg =
+                                        "Database error during authentication: "
+                                            ++ Sqlite.errorToString error
+                                in
+                                response
+                                    |> Route.log (Log.Error errorMsg)
+                                    |> Route.setStatus 500
+                                    |> setErrorMessage "Database error"
+                                    |> Task.succeed
+                    )
+
+
+-- HELPERS
+
+
+setErrorMessage : String -> Response -> Response
+setErrorMessage message response =
+    let
+        body =
+            Json.Encode.object
+                [ { key = "message", value = Json.Encode.string message } ]
+    in
+    response
+        |> Route.setHeader "Content-Type" "application/json"
+        |> Route.setBody (Json.Encode.encode 0 body)

@@ -14,7 +14,7 @@ import PublishingIdentity exposing (PublishingIdentity)
 import Session exposing (Session)
 import Task exposing (Task)
 import Test.Runner.Effectful exposing (Test, await, awaitError, concat, describe, test, todo)
-import Test.E2E.Helper exposing (createSession, get, post, postWithJson, expectBadStatus, expectJson)
+import Test.E2E.Helper exposing (createSession, get, post, authenticatedPostWithJson, expectBadStatus, expectJson)
 import User exposing (User)
 
 
@@ -42,24 +42,12 @@ tests db httpPerm secureContext =
             { sessionToken : Maybe String, name : String }
             -> Task HttpClient.Error (HttpClient.Response Bytes)
         doPost { sessionToken, name } =
-            let
-                tokenField =
-                    when sessionToken is
-                        Just token -> 
-                            [ { key = "session"
-                              , value = Json.Encode.string token
-                              }
-                            ]
-
-                        Nothing ->
-                            []
-            in
-            postWithJson httpPerm "/publishing-identity" <|
-                Json.Encode.object <|
+            authenticatedPostWithJson httpPerm "/publishing-identity" sessionToken <|
+                Json.Encode.object
                     [ { key = "name"
                       , value = Json.Encode.string name
                       }
-                    ] ++ tokenField
+                    ]
     in
 
 
